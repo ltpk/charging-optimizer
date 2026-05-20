@@ -112,7 +112,21 @@ export default function App() {
           EV Charging Optimizer
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '0.04em' }}>
-          spot-hinta.fi · nordpool-predict-fi · Forecast.Solar
+          {[
+            { label: 'spot-hinta.fi',        href: 'https://spot-hinta.fi' },
+            { label: 'nordpool-predict-fi',   href: 'https://github.com/vividfog/nordpool-predict-fi' },
+            { label: 'Forecast.Solar',        href: 'https://forecast.solar' },
+            { label: 'GitHub',                href: 'https://github.com/ltpk/charging-optimizer' },
+          ].map(({ label, href }, i, arr) => (
+            <span key={label}>
+              <a href={href} target="_blank" rel="noopener noreferrer"
+                style={{ color: 'inherit', textDecoration: 'none', opacity: 0.7 }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+              >{label}</a>
+              {i < arr.length - 1 && ' · '}
+            </span>
+          ))}
         </Typography>
       </Box>
 
