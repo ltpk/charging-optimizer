@@ -18,7 +18,7 @@ export const DEFAULT_PARAMS: Params = {
   solarDec:        30,
   solarAz:         180,
   solarKwp:        5.92,
-  solarEnabled:    true,
+  solarEnabled:    false,
 }
 
 function calcHours(p: Params): number {
