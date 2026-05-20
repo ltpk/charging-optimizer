@@ -69,7 +69,7 @@ calcNetCost(params, spotCent, hour, solarW):
 
 | Key | Contents | Invalidation |
 |-----|----------|--------------|
-| `ev_spot_actual_v3` | spot-hinta.fi prices + `fetchedAt` timestamp | Stale if no tomorrow data AND cache older than 1 h |
+| `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp | Stale if no tomorrow data AND cache older than 1 h |
 | `ev_spot_v4` | nordpool-predict-fi forecast | 1 h TTL |
 | `ev_solar_v3` | Forecast.Solar watts map | Daily (calendar date) |
 | `ev_geo` | `{ lat, lon }` strings | Never (manual update) |

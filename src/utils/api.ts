@@ -52,7 +52,7 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
 
   const data: PriceEntry[] = [...hourMap.values()]
     .map(({ dt, total, count }) => ({
-      dt, spotCent: total / count,
+      dt, spotCent: (total / count) * 100,
       hour: dt.getHours(), ts: dt.toISOString().slice(0, 13), source: 'actual' as const,
     }))
     .sort((a, b) => a.dt.getTime() - b.dt.getTime())
