@@ -2,7 +2,7 @@ import { memo, useRef, useMemo } from 'react'
 import { Box, Paper, Typography } from '@mui/material'
 import {
   Chart as ChartJS,
-  CategoryScale, LinearScale, BarElement, LineElement,
+  CategoryScale, LinearScale, BarElement, BarController, LineElement, LineController,
   PointElement, Tooltip, Filler,
 } from 'chart.js'
 import { Chart } from 'react-chartjs-2'
@@ -11,7 +11,7 @@ import type { HourEntry } from '../types'
 import { calcNetCost } from '../utils/optimization'
 import type { Params } from '../types'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Filler)
+ChartJS.register(CategoryScale, LinearScale, BarElement, BarController, LineElement, LineController, PointElement, Tooltip, Filler)
 
 interface Props {
   hours: HourEntry[]
