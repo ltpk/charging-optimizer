@@ -11,9 +11,9 @@ A React + TypeScript + Vite application for optimizing EV charging times based o
 ## Commands
 
 ```bash
-npm run dev      # dev server
-npm run build    # production build
-npx tsc --noEmit # type-check only
+bun run dev      # dev server
+bun run build    # production build
+bunx tsc --noEmit # type-check only
 ```
 
 No test suite. No environment variables needed.

@@ -15,10 +15,10 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 ## Development
 
 ```bash
-npm install
-npm run dev      # http://localhost:5173
-npm run build    # production build → dist/
-npm run preview  # serve dist/ locally
+bun install
+bun run dev      # http://localhost:5173
+bun run build    # production build → dist/
+bun run preview  # serve dist/ locally
 ```
 
 No environment variables or API keys required — all APIs are public.
