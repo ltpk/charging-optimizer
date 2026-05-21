@@ -78,7 +78,7 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
   const maxY           = Math.max(...netCostData, 1) * 1.2
   const maxY2     = Math.max(...solarKw, 1) * 1.5
 
-  const selBg   = hours.map(h => selectedTs.has(h.ts) ? alpha(P, 0.13) : 'rgba(0,0,0,0)')
+  const selBg   = hours.map(h => selectedTs.has(h.ts) ? alpha(S, 0.25) : 'rgba(0,0,0,0)')
   const nightBgData = hours.map(h => (h.hour >= 22 || h.hour < 7) ? nightBg : 'rgba(0,0,0,0)')
 
   const segBorder = (ctx: ScriptableLineSegmentContext, actual: string, predicted: string, past: string) => {
@@ -194,7 +194,7 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
             { color: alpha(P,0.35), label: 'Spot forecast (c/kWh)' },
             { color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' },
             { color: alpha(S,0.8),  label: 'Solar output (kW)' },
-            { color: alpha(P,0.13), label: 'Selected window', border: true },
+            { color: alpha(S,0.25), label: 'Selected window', border: true },
             { color: nightBg,       label: 'Night rate', border: true },
           ].map(({ color, label, border }) => (
             <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.625 }}>
