@@ -13,7 +13,7 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 - Price chart shows net cost, spot price, day/night transfer fee, solar output, and the selected charging window
 - Light/dark/system theme toggle; follows `prefers-color-scheme` by default
 - Mobile-responsive layout with collapsible settings sidebar
-- All data cached in `localStorage`; prices refresh hourly, solar caches for the calendar day
+- All data cached in `localStorage`; prices refresh hourly (a failed refresh keeps the last good data on screen), solar caches for the calendar day
 
 ## Development
 

@@ -43,6 +43,7 @@ src/
 1. `fetchPrices()` in `api.ts` fetches today + tomorrow from `spot-hinta.fi`, fills uncovered hours from `nordpool-predict-fi` (1 h TTL). Actual prices override predictions for the same hour (keyed by `YYYY-MM-DDTHH` UTC).
 2. Optionally `fetchSolarData()` fetches from `api.forecast.solar`. Timestamps are local browser time; converted to UTC keys on receipt.
 3. `App.tsx` passes `priceData`, `solarData`, `params` to `useMemo(() => optimize(...))`. `optimize()` returns `OptimizeResult | null`.
+4. `App.tsx` re-runs `fetchPrices()` hourly. A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error only appears if the *initial* load fails.
 
 ## Optimization logic (`src/utils/optimization.ts`)
 
@@ -62,13 +63,13 @@ calcNetCost(params, spotCent, hour, solarW):
 - Optimization window: future hours only, bounded by `horizonH`
 - **Consecutive mode** (default): O(n) sliding window sum over `futureHours`
 - **Individual mode**: sort by netCost, pick cheapest N, re-sort chronologically
-- **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost`, disabling solar influence on rankings
+- **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0
 
 ## State / caching (localStorage)
 
 | Key | Contents | Invalidation |
 |-----|----------|--------------|
-| `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp | Stale if no tomorrow data AND cache older than 1 h |
+| `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp | Stale if last entry is in the past, or (no tomorrow data AND cache older than 1 h) |
 | `ev_spot_v4` | nordpool-predict-fi forecast | 1 h TTL |
 | `ev_solar_v3` | Forecast.Solar watts map | Daily (calendar date) |
 | `ev_geo` | `{ lat, lon }` strings | Never (manual update) |
@@ -81,6 +82,6 @@ calcNetCost(params, spotCent, hour, solarW):
 
 **nowLinePlugin**: defined with `useMemo(() => ..., [])` (stable reference); reads `nowIdx` and chart colors from `useRef`s updated each render — avoids stale closures without recreating the plugin object. Same pattern used for `colorsRef` so the plugin picks up theme changes.
 
-**Chart**: `<Chart type="bar" data={...} options={...} plugins={[nowLinePlugin]} />` from react-chartjs-2. Mixed datasets use `type: 'line' as const` overrides. `animation: false` for performance. Cast `data as any` to avoid complex mixed-chart generics. Colors derived from `useTheme()` + MUI `alpha()` so they adapt to light/dark mode.
+**Chart**: `<Chart type="bar" data={...} options={...} plugins={[nowLinePlugin]} />` from react-chartjs-2. Mixed datasets use `type: 'line' as const` overrides. `animation: false` for performance. Cast `data as any` to avoid complex mixed-chart generics. Colors derived from `useTheme()` + MUI `alpha()` so they adapt to light/dark mode. The solar dataset and right-hand `y2` axis are included only when `params.solarEnabled`.
 
 **Params update**: `onParamChange<K extends keyof Params>(key: K, value: Params[K])` — generic key narrows the value type. Propagated from App → Sidebar via props.

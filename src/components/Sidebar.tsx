@@ -1,5 +1,6 @@
+import { useId } from 'react'
 import {
-  Box, Divider, Slider, TextField, Checkbox,
+  Box, Divider, Slider, TextField, Checkbox, ToggleButton, ToggleButtonGroup,
   FormControlLabel, Button, Typography, Paper, CircularProgress,
 } from '@mui/material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
@@ -36,6 +37,7 @@ function SliderField({ label, value, unit, min, max, step, onChange }: SliderFie
         value={value}
         min={min} max={max} step={step}
         size="small"
+        aria-label={label}
         onChange={(_, v) => onChange(v as number)}
       />
     </Box>
@@ -52,12 +54,14 @@ interface NumFieldProps {
 }
 
 function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
+  const id = useId()
   return (
     <Box>
-      <Typography variant="body2" color="text.secondary" gutterBottom>
+      <Typography component="label" htmlFor={id} variant="body2" color="text.secondary" display="block" gutterBottom>
         {label}
       </Typography>
       <TextField
+        id={id}
         type="number"
         defaultValue={value}
         key={value}   // force re-mount when value changes externally (e.g. localStorage restore)
@@ -88,7 +92,7 @@ interface Props {
   geoCoords: GeoCoords | null
   onGetGeo: () => void
   onFetchSolar: () => void
-  spotStatus: { ok: boolean; text: string }
+  spotStatus: { ok: boolean; warn: boolean; text: string }
   solarStatus: { ok: boolean; warn: boolean; text: string }
 }
 
@@ -136,7 +140,22 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
             }
             label={<Typography variant="body2" color="text.secondary">Consecutive hours</Typography>}
           />
-          <SliderField label="Search window" value={params.horizonH} unit="h" min={24} max={72} step={24} onChange={p('horizonH')} />
+          <Box>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Search window
+            </Typography>
+            <ToggleButtonGroup
+              value={params.horizonH}
+              exclusive
+              fullWidth
+              size="small"
+              onChange={(_, v: number | null) => { if (v != null) onParamChange('horizonH', v) }}
+            >
+              <ToggleButton value={24}>24 h</ToggleButton>
+              <ToggleButton value={48}>48 h</ToggleButton>
+              <ToggleButton value={72}>72 h</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
         </Box>
       </Box>
 
@@ -208,7 +227,7 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       {/* API status */}
       <Box sx={{ mt: 'auto', pt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <StatusDot ok={spotStatus.ok} warn={false} />
+          <StatusDot ok={spotStatus.ok} warn={spotStatus.warn} />
           <Typography variant="body2" color="text.secondary">{spotStatus.text}</Typography>
         </Box>
         {params.solarEnabled && (

@@ -9,7 +9,6 @@ import {
 import { Chart } from 'react-chartjs-2'
 import type { Plugin, ScriptableLineSegmentContext, ChartOptions } from 'chart.js'
 import type { HourEntry, Params } from '../types'
-import { calcNetCost } from '../utils/optimization'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, BarController, LineElement, LineController, PointElement, Tooltip, Filler)
 
@@ -62,6 +61,8 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
     },
   }), [])
 
+  const solarEnabled = params.solarEnabled
+
   const showDate = horizonH > 24
   const labels   = hours.map(h => {
     const t = h.dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -71,12 +72,13 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
     return t
   })
 
-  const netCostData    = hours.map(h => +calcNetCost(params, h.spotCent, h.hour, h.solarW).toFixed(3))
+  const netCostData    = hours.map(h => +h.netCost.toFixed(3))
   const spotData       = hours.map(h => +h.spotCent.toFixed(3))
   const transferData   = hours.map(h => (h.hour >= 22 || h.hour < 7) ? params.transferNight : params.transferDay)
   const solarKw        = hours.map(h => +(h.solarW / 1000).toFixed(3))
   const maxY           = Math.max(...netCostData, 1) * 1.2
-  const maxY2     = Math.max(...solarKw, 1) * 1.5
+  const minY           = Math.min(0, ...netCostData, ...spotData) * 1.1
+  const maxY2          = Math.max(...solarKw, 1) * 1.5
 
   const selBg   = hours.map(h => selectedTs.has(h.ts) ? alpha(S, 0.25) : 'rgba(0,0,0,0)')
   const nightBgData = hours.map(h => (h.hour >= 22 || h.hour < 7) ? nightBg : 'rgba(0,0,0,0)')
@@ -115,17 +117,17 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
         yAxisID: 'y', fill: false, order: 3,
         borderDash: [4, 3],
       },
-      {
+      ...(solarEnabled ? [{
         type: 'line' as const, label: 'Solar output', data: solarKw,
         borderColor: alpha(S, 0.8), backgroundColor: alpha(S, 0.09),
         borderWidth: 1.5, pointRadius: 0, tension: 0.4, yAxisID: 'y2', fill: true, order: 3,
-      },
+      }] : []),
       {
-        type: 'bar' as const, label: '_sel',   data: hours.map(() => 9999),
+        type: 'bar' as const, label: '_sel',   data: hours.map(() => [-9999, 9999]),
         backgroundColor: selBg,      yAxisID: 'y', barPercentage: 1, categoryPercentage: 1, order: 10,
       },
       {
-        type: 'bar' as const, label: '_night', data: hours.map(() => 9999),
+        type: 'bar' as const, label: '_night', data: hours.map(() => [-9999, 9999]),
         backgroundColor: nightBgData, yAxisID: 'y', barPercentage: 1, categoryPercentage: 1, order: 11,
       },
     ],
@@ -163,9 +165,10 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
         title: { display: true, text: 'c/kWh', color: tickColor, font: { size: 10 } },
         ticks: { color: tickColor, font: { size: 10, family: 'monospace' } },
         grid:  { color: gridColor },
-        max: maxY,
+        min: minY, max: maxY,
       },
       y2: {
+        display: solarEnabled,
         position: 'right',
         title: { display: true, text: 'kW', color: alpha(S, 0.8), font: { size: 10 } },
         ticks: { color: alpha(S, 0.7), font: { size: 10, family: 'monospace' } },
@@ -193,7 +196,7 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
             { color: alpha(P,0.73), label: 'Spot actual (c/kWh)' },
             { color: alpha(P,0.35), label: 'Spot forecast (c/kWh)' },
             { color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' },
-            { color: alpha(S,0.8),  label: 'Solar output (kW)' },
+            ...(solarEnabled ? [{ color: alpha(S,0.8), label: 'Solar output (kW)' }] : []),
             { color: alpha(S,0.25), label: 'Selected window', border: true },
             { color: nightBg,       label: 'Night rate', border: true },
           ].map(({ color, label, border }) => (

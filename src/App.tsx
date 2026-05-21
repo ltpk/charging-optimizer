@@ -22,7 +22,7 @@ import type { Params, PriceEntry, SolarData, GeoCoords, OptimizeResult } from '.
 
 type ColorMode = 'light' | 'dark' | 'system'
 
-interface SpotStatus { ok: boolean; text: string }
+interface SpotStatus { ok: boolean; warn: boolean; text: string }
 interface SolarStatus { ok: boolean; warn: boolean; text: string }
 
 const cachedSolar = loadCachedSolar()
@@ -57,7 +57,7 @@ export default function App() {
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [spotStatus,  setSpotStatus]  = useState<SpotStatus>({ ok: false, text: 'Fetching...' })
+  const [spotStatus,  setSpotStatus]  = useState<SpotStatus>({ ok: false, warn: false, text: 'Fetching...' })
   const [solarStatus, setSolarStatus] = useState<SolarStatus>(() =>
     cachedSolar
       ? { ok: true,  warn: false, text: `From cache — ${Object.keys(cachedSolar).length} h` }
@@ -68,22 +68,38 @@ export default function App() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
+    let cancelled = false
+    let hasData = false
+
     async function load() {
       try {
-        setSpotStatus({ ok: false, text: 'Fetching price data...' })
+        setSpotStatus({ ok: false, warn: false, text: hasData ? 'Refreshing prices...' : 'Fetching price data...' })
         const { priceData: data, statusText } = await fetchPrices()
+        if (cancelled) return
+        hasData = true
         setPriceData(data)
-        setLoading(false)
-        setSpotStatus({ ok: true, text: statusText })
-        timer = setTimeout(load, 3_600_000)
+        setError(null)
+        setSpotStatus({ ok: true, warn: false, text: statusText })
       } catch (e) {
-        setError((e as Error).message)
-        setLoading(false)
-        setSpotStatus({ ok: false, text: 'Connection error' })
+        if (cancelled) return
+        const msg = (e as Error).message
+        if (hasData) {
+          // keep the last good data on screen; just flag the failed refresh
+          setSpotStatus({ ok: false, warn: true, text: `Refresh failed — ${msg}` })
+        } else {
+          setError(msg)
+          setSpotStatus({ ok: false, warn: true, text: 'Connection error' })
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+          timer = setTimeout(load, 3_600_000)
+        }
       }
     }
+
     load()
-    return () => clearTimeout(timer)
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [])
 
   const onParamChange = useCallback(<K extends keyof Params>(key: K, value: Params[K]) => {

@@ -108,6 +108,6 @@ export function optimize(
     totalCost,
     nowIdx:      hours.findIndex(h => h.ts === nowTs),
     hourSources: hours.map(h => h.source === 'actual'),
-    solarNow:    getSolarForDt(solarData, now),
+    solarNow:    params.solarEnabled ? getSolarForDt(solarData, now) : 0,
   }
 }
