@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  Box, Typography, CircularProgress, Alert, Button,
+  Box, Typography, CircularProgress, Alert, Button, Collapse,
   AppBar, Toolbar, ToggleButtonGroup, ToggleButton,
   ThemeProvider, CssBaseline, useMediaQuery,
 } from '@mui/material'
@@ -32,6 +32,7 @@ export default function App() {
     lsGet<ColorMode>(LS_COLOR_MODE) ?? 'system'
   )
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
+  const isMdUp = useMediaQuery('(min-width:900px)')
   const resolvedMode = colorMode === 'system' ? (systemDark ? 'dark' : 'light') : colorMode
 
   const theme = useMemo(() => createTheme({
@@ -184,16 +185,18 @@ export default function App() {
 
         {/* Sidebar + main */}
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, flex: 1, minHeight: 0 }}>
-          <Box sx={{ display: { xs: sidebarOpen ? 'block' : 'none', md: 'block' }, flexShrink: 0 }}>
-            <Sidebar
-              params={params}
-              onParamChange={onParamChange}
-              geoCoords={geoCoords}
-              onGetGeo={handleGetGeo}
-              onFetchSolar={handleFetchSolar}
-              spotStatus={spotStatus}
-              solarStatus={solarStatus}
-            />
+          <Box sx={{ flexShrink: 0 }}>
+            <Collapse in={isMdUp || sidebarOpen}>
+              <Sidebar
+                params={params}
+                onParamChange={onParamChange}
+                geoCoords={geoCoords}
+                onGetGeo={handleGetGeo}
+                onFetchSolar={handleFetchSolar}
+                spotStatus={spotStatus}
+                solarStatus={solarStatus}
+              />
+            </Collapse>
           </Box>
 
           <Box
