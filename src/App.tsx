@@ -173,10 +173,10 @@ export default function App() {
                 size="small"
                 variant={sidebarOpen ? 'contained' : 'outlined'}
                 onClick={() => setSidebarOpen(o => !o)}
-                startIcon={<SettingsIcon fontSize="small" />}
-                sx={{ display: { md: 'none' }, whiteSpace: 'nowrap', minWidth: 0, px: { xs: 1, sm: 1.5 } }}
+                sx={{ display: { md: 'none' }, minWidth: 0, px: { xs: '5px', sm: 1.5 } }}
               >
-                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Settings</Box>
+                <SettingsIcon fontSize="small" />
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 1 }}>Settings</Box>
               </Button>
             </Box>
           </Toolbar>

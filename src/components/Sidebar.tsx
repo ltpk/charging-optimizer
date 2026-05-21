@@ -110,6 +110,7 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
         width: { md: 300 },
         display: 'flex', flexDirection: 'column', gap: 1.75,
         overflowY: 'auto',
+        overflowX: 'hidden',
       }}
     >
       {/* Battery state */}
