@@ -182,7 +182,7 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
           Price &amp; optimal window
         </Typography>
 
-        <Box sx={{ position: 'relative', height: 200 }}>
+        <Box sx={{ position: 'relative', height: 200, touchAction: 'pan-y' }}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <Chart type="bar" data={data as any} options={options} plugins={[nowLinePlugin]} />
         </Box>
