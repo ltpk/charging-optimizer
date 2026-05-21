@@ -172,7 +172,7 @@ export default function App() {
               </ToggleButtonGroup>
               <Button
                 size="small"
-                variant="contained"
+                variant={sidebarOpen ? 'contained' : 'outlined'}
                 onClick={() => setSidebarOpen(o => !o)}
                 sx={{ display: { md: 'none' }, minWidth: 0, px: { xs: '5px', sm: 1.5 } }}
               >
