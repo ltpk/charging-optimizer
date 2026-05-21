@@ -73,7 +73,7 @@ calcNetCost(params, spotCent, hour, solarW):
 | `ev_spot_v4` | nordpool-predict-fi forecast | 1 h TTL |
 | `ev_solar_v3` | Forecast.Solar watts map | Daily (calendar date) |
 | `ev_geo` | `{ lat, lon }` strings | Never (manual update) |
-| `ev_params_v5` | All `Params` fields incl. `solarEnabled` | Never (persisted on every change) |
+| `ev_params_v6` | All `Params` fields incl. `solarEnabled` | Never (persisted on every change) |
 
 ## Key patterns
 

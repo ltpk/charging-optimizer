@@ -1,8 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { ThemeProvider, CssBaseline, Typography, Box } from '@mui/material'
+import { CssBaseline, Typography, Box } from '@mui/material'
 import App from './App'
-import { theme } from './theme'
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state = { error: null }
@@ -24,11 +23,9 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </ThemeProvider>
+    <CssBaseline />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 )

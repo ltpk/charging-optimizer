@@ -1,14 +1,15 @@
 import {
   Box, Divider, Slider, TextField, Checkbox,
-  FormControlLabel, Button, Typography, Paper,
+  FormControlLabel, Button, Typography, Paper, CircularProgress,
 } from '@mui/material'
+import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import type { Params, GeoCoords } from '../types'
 
 // ── helpers ────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <Typography sx={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'text.secondary', mb: 1.25 }}>
+    <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
       {children}
     </Typography>
   )
@@ -28,10 +29,8 @@ function SliderField({ label, value, unit, min, max, step, onChange }: SliderFie
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="caption" color="text.secondary">{label}</Typography>
-        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.primary' }}>
-          {value} {unit}
-        </Typography>
+        <Typography variant="body2" color="text.secondary">{label}</Typography>
+        <Typography variant="body2" fontWeight="medium">{value} {unit}</Typography>
       </Box>
       <Slider
         value={value}
@@ -55,7 +54,7 @@ interface NumFieldProps {
 function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
   return (
     <Box>
-      <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+      <Typography variant="body2" color="text.secondary" gutterBottom>
         {label}
       </Typography>
       <TextField
@@ -63,6 +62,8 @@ function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
         defaultValue={value}
         key={value}   // force re-mount when value changes externally (e.g. localStorage restore)
         inputProps={{ step, min, max }}
+        size="small"
+        fullWidth
         onBlur={e => {
           const v = parseFloat(e.target.value)
           if (!isNaN(v)) onCommit(v)
@@ -75,15 +76,8 @@ function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
 // ── status dots ────────────────────────────────────────────────
 
 function StatusDot({ ok, warn }: { ok: boolean; warn: boolean }) {
-  const color = ok ? 'success.main' : warn ? 'warning.main' : 'primary.main'
-  const anim  = !ok && !warn
-  return (
-    <Box sx={{
-      width: 7, height: 7, borderRadius: '50%', bgcolor: color, flexShrink: 0,
-      ...(anim && { animation: 'pulse 1.2s ease-in-out infinite' }),
-      '@keyframes pulse': { '0%,100%': { opacity: 0.2 }, '50%': { opacity: 1 } },
-    }} />
-  )
+  if (!ok && !warn) return <CircularProgress size={10} />
+  return <FiberManualRecordIcon color={ok ? 'success' : 'warning'} sx={{ fontSize: 10 }} />
 }
 
 // ── main component ─────────────────────────────────────────────
@@ -105,10 +99,11 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
     <Paper
       component="aside"
       square
+      elevation={0}
       sx={{
-        borderRight: '1px solid', borderColor: 'divider',
         borderRadius: 0,
         px: 2, py: 2.5,
+        width: { md: 300 },
         display: 'flex', flexDirection: 'column', gap: 1.75,
         overflowY: 'auto',
       }}
@@ -139,13 +134,9 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
                 onChange={e => onParamChange('consecutive', e.target.checked)}
               />
             }
-            label={
-              <Typography variant="caption" color="text.secondary" sx={{ userSelect: 'none' }}>
-                Consecutive hours (sliding window)
-              </Typography>
-            }
+            label={<Typography variant="body2" color="text.secondary">Consecutive hours</Typography>}
           />
-          <SliderField label="Search window" value={params.horizonH} unit="h" min={24} max={168} step={24} onChange={p('horizonH')} />
+          <SliderField label="Search window" value={params.horizonH} unit="h" min={24} max={72} step={24} onChange={p('horizonH')} />
         </Box>
       </Box>
 
@@ -158,7 +149,7 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
           <NumField label="Transfer day (c/kWh)"               value={params.transferDay}   step={0.01} onCommit={p('transferDay')} />
           <NumField label="Transfer night (c/kWh, 22–07)"      value={params.transferNight} step={0.01} onCommit={p('transferNight')} />
           <NumField label="Buy margin (c/kWh, excl. VAT)"      value={params.buyMargin}     step={0.01} onCommit={p('buyMargin')} />
-          <NumField label="Sell margin (c/kWh, deducted from spot)" value={params.sellMargin} step={0.01} onCommit={p('sellMargin')} />
+          <NumField label="Sell margin (c/kWh, from spot)"     value={params.sellMargin}    step={0.01} onCommit={p('sellMargin')} />
         </Box>
       </Box>
 
@@ -166,7 +157,7 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
 
       {/* Solar PV */}
       <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
           <SectionLabel>Solar PV</SectionLabel>
           <FormControlLabel
             sx={{ mx: 0, gap: 0.5 }}
@@ -177,11 +168,7 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
                 onChange={e => onParamChange('solarEnabled', e.target.checked)}
               />
             }
-            label={
-              <Typography variant="caption" color="text.secondary" sx={{ userSelect: 'none' }}>
-                Enable
-              </Typography>
-            }
+            label={<Typography variant="body2" color="text.secondary">Enable</Typography>}
           />
         </Box>
         {params.solarEnabled && (
@@ -191,12 +178,12 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
             <NumField label="Peak power (kWp)"                  value={params.solarKwp} step={0.1} min={0.1} max={30} onCommit={p('solarKwp')} />
 
             <Box>
-              <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>Location</Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>Location</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Button variant="outlined" color="secondary" size="small" onClick={onGetGeo}>
+                <Button variant="outlined" size="small" onClick={onGetGeo}>
                   Get GPS
                 </Button>
-                <Typography variant="caption" color="text.secondary"
+                <Typography variant="body2" color="text.secondary"
                   sx={{ flex: 1, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {geoCoords ? `${geoCoords.lat}, ${geoCoords.lon}` : '–'}
                 </Typography>
@@ -204,11 +191,11 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
             </Box>
 
             <Box>
-              <Button variant="outlined" color="secondary" size="small" fullWidth onClick={onFetchSolar}>
+              <Button variant="outlined" size="small" fullWidth onClick={onFetchSolar}>
                 Fetch solar forecast
               </Button>
               <Typography
-                variant="caption"
+                variant="body2"
                 sx={{ display: 'block', mt: 0.75, color: solarStatus.ok ? 'success.main' : solarStatus.warn ? 'warning.main' : 'text.secondary' }}
               >
                 {solarStatus.text}
@@ -222,11 +209,11 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       <Box sx={{ mt: 'auto', pt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <StatusDot ok={spotStatus.ok} warn={false} />
-          <Typography variant="caption" color="text.secondary">{spotStatus.text}</Typography>
+          <Typography variant="body2" color="text.secondary">{spotStatus.text}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <StatusDot ok={solarStatus.ok} warn={solarStatus.warn} />
-          <Typography variant="caption" color="text.secondary">{solarStatus.text}</Typography>
+          <Typography variant="body2" color="text.secondary">{solarStatus.text}</Typography>
         </Box>
       </Box>
     </Paper>

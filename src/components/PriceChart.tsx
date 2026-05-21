@@ -1,5 +1,5 @@
 import { memo, useRef, useMemo } from 'react'
-import { Box, Paper, Typography } from '@mui/material'
+import { Box, Card, CardContent, Typography } from '@mui/material'
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, BarElement, BarController, LineElement, LineController,
@@ -13,6 +13,10 @@ import type { Params } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, BarController, LineElement, LineController, PointElement, Tooltip, Filler)
 
+const PRIMARY  = '#1976d2'
+const SUCCESS  = '#2e7d32'
+const WARNING  = '#ed6c02'
+
 interface Props {
   hours: HourEntry[]
   selectedTs: Set<string>
@@ -23,7 +27,6 @@ interface Props {
 }
 
 export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, hourSources, horizonH, params }: Props) {
-  // Ref so the plugin closure always reads the latest values without recreating the plugin
   const ref = useRef({ nowIdx: -1 })
   ref.current.nowIdx = nowIdx
 
@@ -38,12 +41,12 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
       ctx.beginPath()
       ctx.moveTo(x, chartArea.top)
       ctx.lineTo(x, chartArea.bottom)
-      ctx.strokeStyle = 'rgba(240,160,96,0.8)'
+      ctx.strokeStyle = `${WARNING}cc`
       ctx.lineWidth = 1.5
       ctx.setLineDash([4, 3])
       ctx.stroke()
       ctx.setLineDash([])
-      ctx.fillStyle = 'rgba(240,160,96,0.9)'
+      ctx.fillStyle = WARNING
       ctx.font = '10px monospace'
       ctx.fillText('now', x + 3, chartArea.top + 12)
       ctx.restore()
@@ -65,8 +68,8 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
   const maxY      = Math.max(...netCostData, 1) * 1.2
   const maxY2     = Math.max(...solarKw, 1) * 1.5
 
-  const selBg   = hours.map(h => selectedTs.has(h.ts) ? 'rgba(126,212,160,0.25)' : 'rgba(0,0,0,0)')
-  const nightBg = hours.map(h => (h.hour >= 22 || h.hour < 7) ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0)')
+  const selBg   = hours.map(h => selectedTs.has(h.ts) ? `${PRIMARY}22` : 'rgba(0,0,0,0)')
+  const nightBg = hours.map(h => (h.hour >= 22 || h.hour < 7) ? 'rgba(0,0,0,0.04)' : 'rgba(0,0,0,0)')
 
   const segBorder = (ctx: ScriptableLineSegmentContext, actual: string, predicted: string, past: string) => {
     const i = ctx.p0DataIndex
@@ -79,25 +82,25 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
     datasets: [
       {
         type: 'line' as const, label: 'Net cost', data: netCostData,
-        borderColor: '#4f8ef7', backgroundColor: 'rgba(79,142,247,0.1)',
+        borderColor: PRIMARY, backgroundColor: `${PRIMARY}18`,
         borderWidth: 1.5, pointRadius: 0, tension: 0.3, yAxisID: 'y', fill: true, order: 1,
         segment: {
-          borderColor:     (ctx: ScriptableLineSegmentContext) => segBorder(ctx, '#4f8ef7', 'rgba(79,142,247,0.55)', 'rgba(79,142,247,0.22)'),
-          backgroundColor: (ctx: ScriptableLineSegmentContext) => segBorder(ctx, 'rgba(79,142,247,0.1)', 'rgba(79,142,247,0.06)', 'rgba(79,142,247,0.03)'),
+          borderColor:     (ctx: ScriptableLineSegmentContext) => segBorder(ctx, PRIMARY, `${PRIMARY}88`, `${PRIMARY}44`),
+          backgroundColor: (ctx: ScriptableLineSegmentContext) => segBorder(ctx, `${PRIMARY}18`, `${PRIMARY}0e`, `${PRIMARY}08`),
         },
       },
       {
         type: 'line' as const, label: 'Spot price', data: spotData,
-        borderColor: 'rgba(79,142,247,0.4)', borderWidth: 1,
+        borderColor: `${PRIMARY}66`, borderWidth: 1,
         pointRadius: 0, tension: 0.3, yAxisID: 'y', fill: false, order: 2,
         segment: {
-          borderColor: (ctx: ScriptableLineSegmentContext) => segBorder(ctx, 'rgba(79,142,247,0.9)', 'rgba(79,142,247,0.4)', 'rgba(79,142,247,0.15)'),
+          borderColor: (ctx: ScriptableLineSegmentContext) => segBorder(ctx, `${PRIMARY}bb`, `${PRIMARY}66`, `${PRIMARY}33`),
           borderDash:  (ctx: ScriptableLineSegmentContext) => hourSources[ctx.p0DataIndex] ? [] : [2, 3],
         },
       },
       {
         type: 'line' as const, label: 'Solar output', data: solarKw,
-        borderColor: 'rgba(126,212,160,0.8)', backgroundColor: 'rgba(126,212,160,0.07)',
+        borderColor: `${SUCCESS}cc`, backgroundColor: `${SUCCESS}18`,
         borderWidth: 1.5, pointRadius: 0, tension: 0.4, yAxisID: 'y2', fill: true, order: 3,
       },
       {
@@ -134,20 +137,20 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
     },
     scales: {
       x:  {
-        ticks: { color: '#6b7080', font: { size: 10, family: 'monospace' }, maxTicksLimit: 12, maxRotation: 0 },
-        grid:  { color: 'rgba(255,255,255,0.04)' },
+        ticks: { color: 'rgba(0,0,0,0.5)', font: { size: 10, family: 'monospace' }, maxTicksLimit: 12, maxRotation: 0 },
+        grid:  { color: 'rgba(0,0,0,0.08)' },
       },
       y:  {
         position: 'left',
-        title: { display: true, text: 'c/kWh', color: '#6b7080', font: { size: 10 } },
-        ticks: { color: '#6b7080', font: { size: 10, family: 'monospace' } },
-        grid:  { color: 'rgba(255,255,255,0.04)' },
+        title: { display: true, text: 'c/kWh', color: 'rgba(0,0,0,0.5)', font: { size: 10 } },
+        ticks: { color: 'rgba(0,0,0,0.5)', font: { size: 10, family: 'monospace' } },
+        grid:  { color: 'rgba(0,0,0,0.08)' },
         max: maxY,
       },
       y2: {
         position: 'right',
-        title: { display: true, text: 'kW', color: 'rgba(126,212,160,0.8)', font: { size: 10 } },
-        ticks: { color: 'rgba(126,212,160,0.7)', font: { size: 10, family: 'monospace' } },
+        title: { display: true, text: 'kW', color: `${SUCCESS}cc`, font: { size: 10 } },
+        ticks: { color: `${SUCCESS}bb`, font: { size: 10, family: 'monospace' } },
         grid:  { drawOnChartArea: false },
         min: 0, max: maxY2,
       },
@@ -155,34 +158,36 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
   }
 
   return (
-    <Paper sx={{ p: '18px 20px', border: '1px solid', borderColor: 'divider' }}>
-      <Typography
-        variant="overline" color="text.secondary" display="block" mb={1.75}
-        sx={{ fontSize: 11, letterSpacing: '0.1em' }}
-      >
-        Price &amp; optimal window
-      </Typography>
+    <Card variant="outlined">
+      <CardContent>
+        <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+          Price &amp; optimal window
+        </Typography>
 
-      <Box sx={{ position: 'relative', height: 200 }}>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <Chart type="bar" data={data as any} options={options} plugins={[nowLinePlugin]} />
-      </Box>
+        <Box sx={{ position: 'relative', height: 200 }}>
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <Chart type="bar" data={data as any} options={options} plugins={[nowLinePlugin]} />
+        </Box>
 
-      <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
-        {[
-          { color: '#4f8ef7',               label: 'Net cost (c/kWh)' },
-          { color: 'rgba(79,142,247,0.9)',   label: 'Spot actual (c/kWh)' },
-          { color: 'rgba(79,142,247,0.35)',  label: 'Spot forecast (c/kWh)' },
-          { color: 'rgba(126,212,160,0.8)',  label: 'Solar output (kW)' },
-          { color: 'rgba(126,212,160,0.25)', label: 'Selected window' },
-          { color: 'rgba(255,255,255,0.05)', label: 'Night rate' },
-        ].map(({ color, label }) => (
-          <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.625 }}>
-            <Box sx={{ width: 10, height: 10, borderRadius: 0.25, bgcolor: color, flexShrink: 0 }} />
-            <Typography variant="caption" color="text.secondary">{label}</Typography>
-          </Box>
-        ))}
-      </Box>
-    </Paper>
+        <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
+          {[
+            { color: PRIMARY,              label: 'Net cost (c/kWh)' },
+            { color: `${PRIMARY}bb`,       label: 'Spot actual (c/kWh)' },
+            { color: `${PRIMARY}55`,       label: 'Spot forecast (c/kWh)' },
+            { color: `${SUCCESS}cc`,       label: 'Solar output (kW)' },
+            { color: `${PRIMARY}22`,       label: 'Selected window' },
+            { color: 'rgba(0,0,0,0.06)',   label: 'Night rate', border: true },
+          ].map(({ color, label, border }) => (
+            <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.625 }}>
+              <Box sx={{
+                width: 10, height: 10, borderRadius: 0.25, bgcolor: color, flexShrink: 0,
+                ...(border && { border: '1px solid rgba(0,0,0,0.2)' }),
+              }} />
+              <Typography variant="caption" color="text.secondary">{label}</Typography>
+            </Box>
+          ))}
+        </Box>
+      </CardContent>
+    </Card>
   )
 })

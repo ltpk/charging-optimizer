@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Box, Typography, CircularProgress, Alert } from '@mui/material'
+import { Box, Typography, CircularProgress, Alert, Button, AppBar, Toolbar } from '@mui/material'
 import { Sidebar } from './components/Sidebar'
 import { StatusCard } from './components/StatusCard'
 import { Metrics } from './components/Metrics'
@@ -26,6 +26,7 @@ export default function App() {
   const [geoCoords,   setGeoCoords]   = useState<GeoCoords | null>(() => lsGet<GeoCoords>(LS_GEO))
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState<string | null>(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [spotStatus,  setSpotStatus]  = useState<SpotStatus>({ ok: false, text: 'Fetching...' })
   const [solarStatus, setSolarStatus] = useState<SolarStatus>(() =>
     cachedSolar
@@ -94,57 +95,56 @@ export default function App() {
   )
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'grey.100' }}>
       {/* Header */}
-      <Box
-        component="header"
-        sx={{
-          display: 'flex', alignItems: 'baseline', gap: 2,
-          px: 3.5, py: 2.25,
-          borderBottom: '1px solid', borderColor: 'divider',
-          flexShrink: 0,
-        }}
-      >
-        <Typography sx={{
-          fontSize: 15, fontWeight: 600, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: 'primary.main',
-        }}>
-          EV Charging Optimizer
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: '0.04em' }}>
-          {[
-            { label: 'spot-hinta.fi',        href: 'https://spot-hinta.fi' },
-            { label: 'nordpool-predict-fi',   href: 'https://github.com/vividfog/nordpool-predict-fi' },
-            { label: 'Forecast.Solar',        href: 'https://forecast.solar' },
-            { label: 'GitHub',                href: 'https://github.com/ltpk/charging-optimizer' },
-          ].map(({ label, href }, i, arr) => (
-            <span key={label}>
-              <a href={href} target="_blank" rel="noopener noreferrer"
-                style={{ color: 'inherit', textDecoration: 'none', opacity: 0.7 }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
-              >{label}</a>
-              {i < arr.length - 1 && ' · '}
-            </span>
-          ))}
-        </Typography>
-      </Box>
+      <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Toolbar variant="dense" sx={{ gap: 2 }}>
+          <Typography variant="h6" component="h1" sx={{ flexShrink: 0 }}>
+            EV Charging Optimizer
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+            {[
+              { label: 'spot-hinta.fi',        href: 'https://spot-hinta.fi' },
+              { label: 'nordpool-predict-fi',   href: 'https://github.com/vividfog/nordpool-predict-fi' },
+              { label: 'Forecast.Solar',        href: 'https://forecast.solar' },
+              { label: 'GitHub',                href: 'https://github.com/ltpk/charging-optimizer' },
+            ].map(({ label, href }, i, arr) => (
+              <span key={label}>
+                <a href={href} target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'inherit', textDecoration: 'none' }}
+                >{label}</a>
+                {i < arr.length - 1 && ' · '}
+              </span>
+            ))}
+          </Typography>
+          <Button
+            size="small"
+            variant={sidebarOpen ? 'contained' : 'outlined'}
+            onClick={() => setSidebarOpen(o => !o)}
+            sx={{ ml: 'auto', display: { md: 'none' } }}
+          >
+            ⚙ Settings
+          </Button>
+        </Toolbar>
+      </AppBar>
 
-      {/* Two-column layout */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: '300px 1fr', flex: 1, minHeight: 0 }}>
-        <Sidebar
-          params={params}
-          onParamChange={onParamChange}
-          geoCoords={geoCoords}
-          onGetGeo={handleGetGeo}
-          onFetchSolar={handleFetchSolar}
-          spotStatus={spotStatus}
-          solarStatus={solarStatus}
-        />
+      {/* Sidebar + main */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, flex: 1, minHeight: 0 }}>
+        <Box sx={{ display: { xs: sidebarOpen ? 'block' : 'none', md: 'block' }, flexShrink: 0 }}>
+          <Sidebar
+            params={params}
+            onParamChange={onParamChange}
+            geoCoords={geoCoords}
+            onGetGeo={handleGetGeo}
+            onFetchSolar={handleFetchSolar}
+            spotStatus={spotStatus}
+            solarStatus={solarStatus}
+          />
+        </Box>
 
         <Box
           component="main"
-          sx={{ p: '24px 28px', display: 'flex', flexDirection: 'column', gap: 2.5, overflowY: 'auto' }}
+          sx={{ p: { xs: '16px', sm: '24px 28px' }, display: 'flex', flexDirection: 'column', gap: 2.5, overflowY: 'auto', flex: 1, minWidth: 0 }}
         >
           {loading && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary', py: 5 }}>
@@ -175,7 +175,7 @@ export default function App() {
                 solarNow={result.solarNow}
               />
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 2, alignItems: 'start' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '200px 1fr' }, gap: 2, alignItems: 'start' }}>
                 <HourList selectedList={result.selectedList} />
                 <PriceChart
                   hours={result.hours}
