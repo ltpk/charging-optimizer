@@ -10,6 +10,9 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 - Optional solar production forecast from [Forecast.Solar](https://forecast.solar) — offsets charging cost when solar covers part of charging power
 - Two optimization modes: cheapest **consecutive** block (sliding window) or cheapest **individual** hours
 - Configurable battery capacity, charging loss, charging power, grid transfer fees, and buy/sell margins (Finnish VAT 25.5% applied correctly)
+- Price chart shows net cost, spot price, day/night transfer fee, solar output, and the selected charging window
+- Light/dark/system theme toggle; follows `prefers-color-scheme` by default
+- Mobile-responsive layout with collapsible settings sidebar
 - All data cached in `localStorage`; prices refresh hourly, solar caches for the calendar day
 
 ## Development
