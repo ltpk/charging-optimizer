@@ -211,10 +211,12 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
           <StatusDot ok={spotStatus.ok} warn={false} />
           <Typography variant="body2" color="text.secondary">{spotStatus.text}</Typography>
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <StatusDot ok={solarStatus.ok} warn={solarStatus.warn} />
-          <Typography variant="body2" color="text.secondary">{solarStatus.text}</Typography>
-        </Box>
+        {params.solarEnabled && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <StatusDot ok={solarStatus.ok} warn={solarStatus.warn} />
+            <Typography variant="body2" color="text.secondary">{solarStatus.text}</Typography>
+          </Box>
+        )}
       </Box>
     </Paper>
   )

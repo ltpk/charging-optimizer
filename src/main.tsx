@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { CssBaseline, Typography, Box } from '@mui/material'
+import { Typography, Box } from '@mui/material'
 import App from './App'
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
@@ -23,7 +23,6 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { err
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <CssBaseline />
     <ErrorBoundary>
       <App />
     </ErrorBoundary>

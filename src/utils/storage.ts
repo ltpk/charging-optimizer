@@ -1,3 +1,4 @@
+export const LS_COLOR_MODE  = 'ev_color_mode'
 export const LS_SPOT        = 'ev_spot_v4'
 export const LS_SPOT_ACTUAL = 'ev_spot_actual_v4'
 export const LS_SOLAR       = 'ev_solar_v3'
