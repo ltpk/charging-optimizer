@@ -8,6 +8,7 @@ import { createTheme } from '@mui/material/styles'
 import LightModeIcon from '@mui/icons-material/LightMode'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness'
+import SettingsIcon from '@mui/icons-material/Settings'
 import { Sidebar } from './components/Sidebar'
 import { StatusCard } from './components/StatusCard'
 import { Metrics } from './components/Metrics'
@@ -127,8 +128,8 @@ export default function App() {
       <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default', overflowX: 'hidden' }}>
         {/* Header */}
         <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Toolbar variant="dense" sx={{ gap: 2 }}>
-            <Typography variant="h6" component="h1" sx={{ flexShrink: 0 }}>
+          <Toolbar variant="dense" sx={{ gap: { xs: 1, sm: 2 } }}>
+            <Typography variant="h6" component="h1" sx={{ flexShrink: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               EV Charging Optimizer
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
@@ -156,9 +157,10 @@ export default function App() {
                 size="small"
                 variant={sidebarOpen ? 'contained' : 'outlined'}
                 onClick={() => setSidebarOpen(o => !o)}
-                sx={{ display: { md: 'none' } }}
+                startIcon={<SettingsIcon fontSize="small" />}
+                sx={{ display: { md: 'none' }, whiteSpace: 'nowrap', minWidth: 0, px: { xs: 1, sm: 1.5 } }}
               >
-                ⚙ Settings
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>Settings</Box>
               </Button>
             </Box>
           </Toolbar>
