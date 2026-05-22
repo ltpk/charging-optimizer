@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   Box, Typography, CircularProgress, Alert, Button, Collapse,
   AppBar, Toolbar, ToggleButtonGroup, ToggleButton,
@@ -67,12 +67,15 @@ export default function App() {
 
   useEffect(() => { lsSet(LS_PARAMS, params) }, [params])
 
+  const refreshRef = useRef<() => void>(() => {})
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     let cancelled = false
     let hasData = false
 
     async function load() {
+      clearTimeout(timer)
       try {
         setSpotStatus({ ok: false, warn: false, text: hasData ? 'Refreshing prices...' : 'Fetching price data...' })
         const { priceData: data, statusText } = await fetchPrices()
@@ -85,7 +88,6 @@ export default function App() {
         if (cancelled) return
         const msg = (e as Error).message
         if (hasData) {
-          // keep the last good data on screen; just flag the failed refresh
           setSpotStatus({ ok: false, warn: true, text: `Refresh failed — ${msg}` })
         } else {
           setError(msg)
@@ -99,9 +101,12 @@ export default function App() {
       }
     }
 
+    refreshRef.current = load
     load()
     return () => { cancelled = true; clearTimeout(timer) }
   }, [])
+
+  const handleRefreshPrices = useCallback(() => refreshRef.current(), [])
 
   const onParamChange = useCallback(<K extends keyof Params>(key: K, value: Params[K]) => {
     setParams(p => ({ ...p, [key]: value }))
@@ -193,6 +198,7 @@ export default function App() {
                 geoCoords={geoCoords}
                 onGetGeo={handleGetGeo}
                 onFetchSolar={handleFetchSolar}
+                onRefreshPrices={handleRefreshPrices}
                 spotStatus={spotStatus}
                 solarStatus={solarStatus}
               />
@@ -228,6 +234,8 @@ export default function App() {
                   nHours={result.nHours}
                   totalCost={result.totalCost}
                   solarNow={result.solarNow}
+                  avgNetCost={result.avgNetCost}
+                  solarEnabled={params.solarEnabled}
                 />
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '200px 1fr' }, gap: 2, alignItems: 'start' }}>

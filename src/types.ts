@@ -26,6 +26,8 @@ export interface Params {
   chargingPower: number
   consecutive: boolean
   horizonH: number
+  chargeByEnabled: boolean
+  chargeByHour: number
   transferDay: number
   transferNight: number
   buyMargin: number
@@ -47,4 +49,5 @@ export interface OptimizeResult {
   nowIdx: number
   hourSources: boolean[]
   solarNow: number
+  avgNetCost: number
 }

@@ -9,11 +9,12 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 - Fetches actual spot prices from [spot-hinta.fi](https://spot-hinta.fi) (today + tomorrow, 15-min intervals averaged to hourly), falling back to [nordpool-predict-fi](https://github.com/vividfog/nordpool-predict-fi) forecasts for uncovered hours
 - Optional solar production forecast from [Forecast.Solar](https://forecast.solar) — offsets charging cost when solar covers part of charging power
 - Two optimization modes: cheapest **consecutive** block (sliding window) or cheapest **individual** hours
+- Optional **charge-by deadline** — constrains the search window to complete charging before a given hour (e.g. by 07:00)
 - Configurable battery capacity, charging loss, charging power, grid transfer fees, and buy/sell margins (Finnish VAT 25.5% applied correctly)
 - Price chart shows net cost, spot price, day/night transfer fee, solar output, and the selected charging window
 - Light/dark/system theme toggle; follows `prefers-color-scheme` by default
 - Mobile-responsive layout with collapsible settings sidebar
-- All data cached in `localStorage`; prices refresh hourly (a failed refresh keeps the last good data on screen), solar caches for the calendar day
+- All data cached in `localStorage`; prices refresh hourly or on demand via the refresh button (a failed refresh keeps the last good data on screen), solar caches for the calendar day
 
 ## Development
 
@@ -37,6 +38,7 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 | Charging loss | Round-trip loss (%) — energy drawn from grid exceeds energy stored |
 | Charging power | kW at the charger |
 | Consecutive hours | Sliding window mode (default) vs. cheapest individual hours |
+| Charge by | Optional deadline — optimizer only uses hours that complete before this hour-of-day |
 | Transfer day/night | Grid transfer fee (c/kWh); night rate applies 22:00–07:00 |
 | Buy margin | Retailer margin on purchases (c/kWh, VAT-exclusive) |
 | Sell margin | Deducted from spot when calculating solar sell-back value |

@@ -1,9 +1,10 @@
 import { useId } from 'react'
 import {
   Box, Divider, Slider, TextField, Checkbox, ToggleButton, ToggleButtonGroup,
-  FormControlLabel, Button, Typography, Paper, CircularProgress,
+  FormControlLabel, Button, Typography, Paper, CircularProgress, IconButton,
 } from '@mui/material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import type { Params, GeoCoords } from '../types'
 
 // ── helpers ────────────────────────────────────────────────────
@@ -92,11 +93,12 @@ interface Props {
   geoCoords: GeoCoords | null
   onGetGeo: () => void
   onFetchSolar: () => void
+  onRefreshPrices: () => void
   spotStatus: { ok: boolean; warn: boolean; text: string }
   solarStatus: { ok: boolean; warn: boolean; text: string }
 }
 
-export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSolar, spotStatus, solarStatus }: Props) {
+export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSolar, onRefreshPrices, spotStatus, solarStatus }: Props) {
   const p = <K extends keyof Params>(key: K) => (v: Params[K]) => onParamChange(key, v)
 
   return (
@@ -119,6 +121,11 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
         <SliderField label="SOC now"    value={params.socNow}    unit="%" min={0} max={100} step={1} onChange={p('socNow')} />
         <Box mt={1.5} />
         <SliderField label="SOC target" value={params.socTarget} unit="%" min={10} max={100} step={10} onChange={p('socTarget')} />
+        {params.socNow >= params.socTarget && (
+          <Typography variant="caption" color="warning.main" display="block" mt={0.5}>
+            SOC now ≥ target — battery already full
+          </Typography>
+        )}
       </Box>
 
       <Divider />
@@ -156,6 +163,36 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
               <ToggleButton value={48}>48 h</ToggleButton>
               <ToggleButton value={72}>72 h</ToggleButton>
             </ToggleButtonGroup>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <FormControlLabel
+              sx={{ mx: 0, gap: 0.5, flex: 1 }}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={params.chargeByEnabled}
+                  onChange={e => onParamChange('chargeByEnabled', e.target.checked)}
+                />
+              }
+              label={<Typography variant="body2" color="text.secondary">Charge by</Typography>}
+            />
+            {params.chargeByEnabled && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <TextField
+                  type="number"
+                  defaultValue={params.chargeByHour}
+                  key={params.chargeByHour}
+                  inputProps={{ min: 0, max: 23, step: 1 }}
+                  size="small"
+                  sx={{ width: 60 }}
+                  onBlur={e => {
+                    const v = parseInt(e.target.value)
+                    if (!isNaN(v) && v >= 0 && v <= 23) onParamChange('chargeByHour', v)
+                  }}
+                />
+                <Typography variant="body2" color="text.secondary">:00</Typography>
+              </Box>
+            )}
           </Box>
         </Box>
       </Box>
@@ -229,7 +266,10 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       <Box sx={{ mt: 'auto', pt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <StatusDot ok={spotStatus.ok} warn={spotStatus.warn} />
-          <Typography variant="body2" color="text.secondary">{spotStatus.text}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{spotStatus.text}</Typography>
+          <IconButton size="small" onClick={onRefreshPrices} aria-label="Refresh prices" sx={{ p: 0.25 }}>
+            <RefreshIcon sx={{ fontSize: 14 }} />
+          </IconButton>
         </Box>
         {params.solarEnabled && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>

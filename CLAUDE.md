@@ -33,7 +33,7 @@ src/
   components/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
-    Metrics.tsx            — 4-metric grid (needed h, duration, cost, solar now)
+    Metrics.tsx            — 4-metric grid (needed h, duration, cost, solar now OR avg net cost when solar disabled)
     HourList.tsx           — ranked cheapest hours with MUI LinearProgress bars
     PriceChart.tsx         — Chart.js mixed bar+line; nowLinePlugin + colorsRef via useRef to avoid stale closures
 ```
@@ -43,7 +43,7 @@ src/
 1. `fetchPrices()` in `api.ts` fetches today + tomorrow from `spot-hinta.fi`, fills uncovered hours from `nordpool-predict-fi` (1 h TTL). Actual prices override predictions for the same hour (keyed by `YYYY-MM-DDTHH` UTC).
 2. Optionally `fetchSolarData()` fetches from `api.forecast.solar`. Timestamps are local browser time; converted to UTC keys on receipt.
 3. `App.tsx` passes `priceData`, `solarData`, `params` to `useMemo(() => optimize(...))`. `optimize()` returns `OptimizeResult | null`.
-4. `App.tsx` re-runs `fetchPrices()` hourly. A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error only appears if the *initial* load fails.
+4. `App.tsx` re-runs `fetchPrices()` hourly (or on demand via the sidebar refresh button). A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error only appears if the *initial* load fails. Manual refresh uses a `refreshRef` that exposes the inner `load()` closure so it shares the same `hasData` state.
 
 ## Optimization logic (`src/utils/optimization.ts`)
 
@@ -60,7 +60,7 @@ calcNetCost(params, spotCent, hour, solarW):
 - `ALV = 1.255` — Finnish VAT 25.5%
 - Transfer fee: `transferNight` for hours 22–07, `transferDay` otherwise
 - Graph window: last 6 h of past + `horizonH` hours ahead
-- Optimization window: future hours only, bounded by `horizonH`
+- Optimization window: future hours only, bounded by `horizonH` and optional `chargeByHour` deadline (next occurrence of that hour-of-day)
 - **Consecutive mode** (default): O(n) sliding window sum over `futureHours`
 - **Individual mode**: sort by netCost, pick cheapest N, re-sort chronologically
 - **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0
@@ -73,7 +73,7 @@ calcNetCost(params, spotCent, hour, solarW):
 | `ev_spot_v4` | nordpool-predict-fi forecast | 1 h TTL |
 | `ev_solar_v3` | Forecast.Solar watts map | Daily (calendar date) |
 | `ev_geo` | `{ lat, lon }` strings | Never (manual update) |
-| `ev_params_v6` | All `Params` fields incl. `solarEnabled` | Never (persisted on every change) |
+| `ev_params_v6` | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour` | Never (persisted on every change) |
 | `ev_color_mode` | `'light' \| 'dark' \| 'system'` | Never (persisted on every change) |
 
 ## Key patterns

@@ -11,6 +11,8 @@ export const DEFAULT_PARAMS: Params = {
   chargingPower:   5.5,
   consecutive:     true,
   horizonH:        24,
+  chargeByEnabled: false,
+  chargeByHour:    7,
   transferDay:     5.11,
   transferNight:   3.12,
   buyMargin:       0.54,
@@ -63,7 +65,15 @@ export function optimize(
   if (!hours.length) return null
 
   const nowHour     = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours())
-  const futureHours = hours.filter(h => h.dt >= nowHour)
+
+  let deadlineDt: Date | null = null
+  if (params.chargeByEnabled) {
+    const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), params.chargeByHour)
+    if (candidate <= now) candidate.setDate(candidate.getDate() + 1)
+    deadlineDt = new Date(Math.min(candidate.getTime(), horizonCutoff.getTime()))
+  }
+
+  const futureHours = hours.filter(h => h.dt >= nowHour && (!deadlineDt || h.dt < deadlineDt))
 
   let selectedList: HourEntry[]
   if (params.consecutive) {
@@ -91,10 +101,10 @@ export function optimize(
     return h.dt <= now && now < end
   }) ?? hours[0]
 
-  const avgNetto  = selectedList.length > 0
+  const avgNetCost = selectedList.length > 0
     ? selectedList.reduce((s, h) => s + h.netCost, 0) / selectedList.length
     : 0
-  const totalCost = avgNetto * hoursNeeded * params.chargingPower / 100
+  const totalCost = avgNetCost * hoursNeeded * params.chargingPower / 100
 
   const nowTs = now.toISOString().slice(0, 13)
 
@@ -109,5 +119,6 @@ export function optimize(
     nowIdx:      hours.findIndex(h => h.ts === nowTs),
     hourSources: hours.map(h => h.source === 'actual'),
     solarNow:    params.solarEnabled ? getSolarForDt(solarData, now) : 0,
+    avgNetCost,
   }
 }

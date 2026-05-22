@@ -3,6 +3,14 @@ import type { HourEntry } from '../types'
 
 interface Props { selectedList: HourEntry[] }
 
+function dayLabel(dt: Date): string | null {
+  const today    = new Date()
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+  if (dt.toDateString() === today.toDateString())    return null
+  if (dt.toDateString() === tomorrow.toDateString()) return 'tomorrow'
+  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric' })
+}
+
 export function HourList({ selectedList }: Props) {
   const netCostValues = selectedList.map(h => h.netCost)
   const minNetto    = selectedList.length > 0 ? Math.min(...netCostValues) : 0
@@ -17,9 +25,8 @@ export function HourList({ selectedList }: Props) {
         </Typography>
 
         {selectedList.map((h, i) => {
-          const pct   = (maxNetto - h.netCost) / netCostRange * 100
-          const label = h.dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric' }) + ' ' +
-                        h.dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+          const pct  = (maxNetto - h.netCost) / netCostRange * 100
+          const date = dayLabel(h.dt)
           return (
             <Box
               key={h.ts}
@@ -34,15 +41,17 @@ export function HourList({ selectedList }: Props) {
               </Typography>
 
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="caption" color="text.secondary" display="block" mb={0.375}>
-                  {label}
-                </Typography>
+                {date && (
+                  <Typography variant="caption" color="text.secondary" display="block" mb={0.375}>
+                    {date}
+                  </Typography>
+                )}
                 <LinearProgress variant="determinate" value={pct} color="success" />
               </Box>
 
               <Typography variant="caption" color="text.secondary"
-                sx={{ minWidth: 56, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                {h.netCost.toFixed(2)} c
+                sx={{ minWidth: 64, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {h.netCost.toFixed(2)} c/kWh
               </Typography>
             </Box>
           )
