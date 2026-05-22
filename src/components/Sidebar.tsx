@@ -118,7 +118,7 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
         <SectionLabel>Battery State</SectionLabel>
         <SliderField label="SOC now"    value={params.socNow}    unit="%" min={0} max={100} step={1} onChange={p('socNow')} />
         <Box mt={1.5} />
-        <SliderField label="SOC target" value={params.socTarget} unit="%" min={1} max={100} step={1} onChange={p('socTarget')} />
+        <SliderField label="SOC target" value={params.socTarget} unit="%" min={10} max={100} step={10} onChange={p('socTarget')} />
       </Box>
 
       <Divider />
