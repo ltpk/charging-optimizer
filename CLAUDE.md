@@ -60,7 +60,7 @@ calcNetCost(params, spotCent, hour, solarW):
 - `ALV = 1.255` — Finnish VAT 25.5%
 - Transfer fee: `transferNight` for hours 22–07, `transferDay` otherwise
 - Graph window: last 6 h of past + `horizonH` hours ahead
-- Optimization window: future hours only, bounded by `horizonH` and optional `chargeByHour` deadline (next occurrence of that hour-of-day)
+- Optimization window: future hours only, bounded by `horizonH` and optional charge-by deadline (`chargeByDay` offset 0/1/2 + `chargeByHour`)
 - **Consecutive mode** (default): O(n) sliding window sum over `futureHours`
 - **Individual mode**: sort by netCost, pick cheapest N, re-sort chronologically
 - **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0
@@ -73,7 +73,7 @@ calcNetCost(params, spotCent, hour, solarW):
 | `ev_spot_v4` | nordpool-predict-fi forecast | 1 h TTL |
 | `ev_solar_v3` | Forecast.Solar watts map | Daily (calendar date) |
 | `ev_geo` | `{ lat, lon }` strings | Never (manual update) |
-| `ev_params_v6` | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour` | Never (persisted on every change) |
+| `ev_params_v6` | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change) |
 | `ev_color_mode` | `'light' \| 'dark' \| 'system'` | Never (persisted on every change) |
 
 ## Key patterns

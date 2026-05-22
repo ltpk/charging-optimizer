@@ -13,6 +13,7 @@ export const DEFAULT_PARAMS: Params = {
   horizonH:        24,
   chargeByEnabled: false,
   chargeByHour:    7,
+  chargeByDay:     1,
   transferDay:     5.11,
   transferNight:   3.12,
   buyMargin:       0.54,
@@ -68,8 +69,7 @@ export function optimize(
 
   let deadlineDt: Date | null = null
   if (params.chargeByEnabled) {
-    const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), params.chargeByHour)
-    if (candidate <= now) candidate.setDate(candidate.getDate() + 1)
+    const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + params.chargeByDay, params.chargeByHour)
     deadlineDt = new Date(Math.min(candidate.getTime(), horizonCutoff.getTime()))
   }
 

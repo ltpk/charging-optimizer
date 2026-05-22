@@ -35,17 +35,19 @@ export function HourList({ selectedList }: Props) {
                 borderBottom: i < selectedList.length - 1 ? '1px solid' : 'none', borderColor: 'divider',
               }}
             >
-              <Typography variant="body2" fontWeight="medium" color="primary"
-                sx={{ minWidth: 48, fontVariantNumeric: 'tabular-nums' }}>
-                {h.dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-              </Typography>
-
-              <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box sx={{ minWidth: 48 }}>
+                <Typography variant="body2" fontWeight="medium" color="primary"
+                  sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {h.dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                </Typography>
                 {date && (
-                  <Typography variant="caption" color="text.secondary" display="block" mb={0.375}>
+                  <Typography variant="caption" color="text.secondary" display="block">
                     {date}
                   </Typography>
                 )}
+              </Box>
+
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <LinearProgress variant="determinate" value={pct} color="success" />
               </Box>
 

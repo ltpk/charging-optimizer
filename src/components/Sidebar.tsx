@@ -164,9 +164,9 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
               <ToggleButton value={72}>72 h</ToggleButton>
             </ToggleButtonGroup>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box>
             <FormControlLabel
-              sx={{ mx: 0, gap: 0.5, flex: 1 }}
+              sx={{ mx: 0, gap: 0.5 }}
               control={
                 <Checkbox
                   size="small"
@@ -177,20 +177,32 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
               label={<Typography variant="body2" color="text.secondary">Charge by</Typography>}
             />
             {params.chargeByEnabled && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <TextField
-                  type="number"
-                  defaultValue={params.chargeByHour}
-                  key={params.chargeByHour}
-                  inputProps={{ min: 0, max: 23, step: 1 }}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
+                <ToggleButtonGroup
+                  value={params.chargeByDay}
+                  exclusive
                   size="small"
-                  sx={{ width: 60 }}
-                  onBlur={e => {
-                    const v = parseInt(e.target.value)
-                    if (!isNaN(v) && v >= 0 && v <= 23) onParamChange('chargeByHour', v)
-                  }}
-                />
-                <Typography variant="body2" color="text.secondary">:00</Typography>
+                  onChange={(_, v: number | null) => { if (v != null) onParamChange('chargeByDay', v) }}
+                >
+                  <ToggleButton value={0}>Today</ToggleButton>
+                  <ToggleButton value={1}>Tmrw</ToggleButton>
+                  <ToggleButton value={2}>+2d</ToggleButton>
+                </ToggleButtonGroup>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <TextField
+                    type="number"
+                    defaultValue={params.chargeByHour}
+                    key={params.chargeByHour}
+                    inputProps={{ min: 0, max: 23, step: 1 }}
+                    size="small"
+                    sx={{ width: 60 }}
+                    onBlur={e => {
+                      const v = parseInt(e.target.value)
+                      if (!isNaN(v) && v >= 0 && v <= 23) onParamChange('chargeByHour', v)
+                    }}
+                  />
+                  <Typography variant="body2" color="text.secondary">:00</Typography>
+                </Box>
               </Box>
             )}
           </Box>

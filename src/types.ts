@@ -28,6 +28,7 @@ export interface Params {
   horizonH: number
   chargeByEnabled: boolean
   chargeByHour: number
+  chargeByDay: number
   transferDay: number
   transferNight: number
   buyMargin: number
