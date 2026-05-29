@@ -45,13 +45,13 @@ export function optimize(
   priceData: PriceEntry[],
   solarData: SolarData,
   params: Params,
+  now: Date = new Date(),
 ): OptimizeResult | null {
   if (!priceData.length) return null
 
   const hoursNeeded = calcHours(params)
   const nHours      = Math.ceil(hoursNeeded)
 
-  const now           = new Date()
   const pastCutoff    = new Date(now.getTime() - 6 * 3_600_000)
 
   const horizonCutoff = new Date(now.getTime() + params.horizonH * 3_600_000)
@@ -104,7 +104,8 @@ export function optimize(
   const avgNetCost = selectedList.length > 0
     ? selectedList.reduce((s, h) => s + h.netCost, 0) / selectedList.length
     : 0
-  const totalCost = avgNetCost * hoursNeeded * params.chargingPower / 100
+  // cap at achievable hours: a tight deadline/horizon can fit fewer hours than needed
+  const totalCost = avgNetCost * Math.min(hoursNeeded, selectedList.length) * params.chargingPower / 100
 
   const nowTs = now.toISOString().slice(0, 13)
 

@@ -96,9 +96,11 @@ interface Props {
   onRefreshPrices: () => void
   spotStatus: { ok: boolean; warn: boolean; text: string }
   solarStatus: { ok: boolean; warn: boolean; text: string }
+  notifyEnabled: boolean
+  onToggleNotify: (v: boolean) => void
 }
 
-export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSolar, onRefreshPrices, spotStatus, solarStatus }: Props) {
+export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSolar, onRefreshPrices, spotStatus, solarStatus, notifyEnabled, onToggleNotify }: Props) {
   const p = <K extends keyof Params>(key: K) => (v: Params[K]) => onParamChange(key, v)
 
   return (
@@ -274,8 +276,28 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
         )}
       </Box>
 
+      {/* Notifications */}
+      <Box sx={{ mt: 'auto' }}>
+        <FormControlLabel
+          sx={{ mx: 0, gap: 0.5 }}
+          control={
+            <Checkbox
+              size="small"
+              checked={notifyEnabled}
+              onChange={e => onToggleNotify(e.target.checked)}
+            />
+          }
+          label={<Typography variant="body2" color="text.secondary">Notify when charging starts</Typography>}
+        />
+        {notifyEnabled && typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
+          <Typography variant="caption" color="warning.main" display="block">
+            Notifications blocked in browser settings
+          </Typography>
+        )}
+      </Box>
+
       {/* API status */}
-      <Box sx={{ mt: 'auto', pt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <StatusDot ok={spotStatus.ok} warn={spotStatus.warn} />
           <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{spotStatus.text}</Typography>

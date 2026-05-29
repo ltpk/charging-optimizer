@@ -1,4 +1,4 @@
-import { lsGet, lsSet, LS_SPOT, LS_SPOT_ACTUAL } from './storage'
+import { lsGet, lsSet, LS_SPOT, LS_SPOT_ACTUAL, localDateStr } from './storage'
 import type { PriceEntry } from '../types'
 
 const SPOT_TODAY_URL   = 'https://api.spot-hinta.fi/today'
@@ -24,8 +24,9 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
     const tomorrow  = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0, 0, 0, 0)
     const cacheAge  = Date.now() - (cached.fetchedAt ?? 0)
     const hasTomorrow = lastDt >= tomorrow
+    const lastSlotActive = lastDt.getTime() + 3_600_000 > Date.now()  // last hour not yet fully elapsed
     // keep cache if it covers tomorrow OR was fetched less than 1 h ago
-    if ((hasTomorrow || cacheAge < 3_600_000) && lastDt >= new Date())
+    if ((hasTomorrow || cacheAge < 3_600_000) && lastSlotActive)
       return cached.data.map(d => ({ ...d, dt: new Date(d.dtIso) }))
   }
 
@@ -62,7 +63,7 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
 }
 
 async function fetchPredict(): Promise<PriceEntry[]> {
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = localDateStr()
   const cached = lsGet<{ date: string; fetchedAt: number; data: StoredEntry[] }>(LS_SPOT)
   if (cached?.date === todayStr && Date.now() - cached.fetchedAt < 3_600_000)
     return cached.data.map(d => ({ ...d, dt: new Date(d.dtIso), source: 'predicted' as const }))

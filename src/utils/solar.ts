@@ -1,4 +1,4 @@
-import { lsGet, lsSet, LS_SOLAR } from './storage'
+import { lsGet, lsSet, LS_SOLAR, localDateStr } from './storage'
 import type { GeoCoords, Params, SolarData } from '../types'
 
 interface ForecastSolarResponse {
@@ -11,7 +11,7 @@ export function getSolarForDt(solarData: SolarData, dt: Date): number {
 
 export function loadCachedSolar(): SolarData | null {
   const cached = lsGet<{ date: string; data: SolarData }>(LS_SOLAR)
-  return cached?.date === new Date().toISOString().slice(0, 10) ? cached.data : null
+  return cached?.date === localDateStr() ? cached.data : null
 }
 
 export async function fetchSolarData(
@@ -32,6 +32,6 @@ export async function fetchSolarData(
     if (!isNaN(dt.getTime())) data[dt.toISOString().slice(0, 13)] = w
   }
 
-  lsSet(LS_SOLAR, { date: new Date().toISOString().slice(0, 10), data })
+  lsSet(LS_SOLAR, { date: localDateStr(), data })
   return data
 }

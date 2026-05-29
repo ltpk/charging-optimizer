@@ -76,7 +76,7 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
   const spotData       = hours.map(h => +h.spotCent.toFixed(3))
   const transferData   = hours.map(h => (h.hour >= 22 || h.hour < 7) ? params.transferNight : params.transferDay)
   const solarKw        = hours.map(h => +(h.solarW / 1000).toFixed(3))
-  const maxY           = Math.max(...netCostData, 1) * 1.2
+  const maxY           = Math.max(...netCostData, ...spotData, ...transferData, 1) * 1.2
   const minY           = Math.min(0, ...netCostData, ...spotData) * 1.1
   const maxY2          = Math.max(...solarKw, 1) * 1.5
 

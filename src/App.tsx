@@ -17,7 +17,7 @@ import { PriceChart } from './components/PriceChart'
 import { fetchPrices } from './utils/api'
 import { fetchSolarData, loadCachedSolar } from './utils/solar'
 import { optimize, DEFAULT_PARAMS } from './utils/optimization'
-import { lsGet, lsSet, LS_PARAMS, LS_GEO, LS_COLOR_MODE } from './utils/storage'
+import { lsGet, lsSet, LS_PARAMS, LS_GEO, LS_COLOR_MODE, LS_NOTIFY } from './utils/storage'
 import type { Params, PriceEntry, SolarData, GeoCoords, OptimizeResult } from './types'
 
 type ColorMode = 'light' | 'dark' | 'system'
@@ -52,6 +52,9 @@ export default function App() {
     ...DEFAULT_PARAMS,
     ...(lsGet<Partial<Params>>(LS_PARAMS) ?? {}),
   }))
+  // ticks at hour granularity so the optimizer's "now" advances even without a data refresh
+  const [now, setNow] = useState(() => new Date())
+  const [notifyEnabled, setNotifyEnabled] = useState<boolean>(() => lsGet<boolean>(LS_NOTIFY) ?? false)
   const [priceData,   setPriceData]   = useState<PriceEntry[]>([])
   const [solarData,   setSolarData]   = useState<SolarData>(cachedSolar ?? {})
   const [geoCoords,   setGeoCoords]   = useState<GeoCoords | null>(() => lsGet<GeoCoords>(LS_GEO))
@@ -66,6 +69,19 @@ export default function App() {
   )
 
   useEffect(() => { lsSet(LS_PARAMS, params) }, [params])
+
+  // advance `now` only when the clock hour changes (optimize output is hour-granular);
+  // also re-check when the tab returns to the foreground after being throttled/asleep
+  useEffect(() => {
+    const tick = () => setNow(prev => {
+      const next = new Date()
+      return Math.floor(next.getTime() / 3_600_000) !== Math.floor(prev.getTime() / 3_600_000) ? next : prev
+    })
+    const id = setInterval(tick, 60_000)
+    const onVisible = () => { if (!document.hidden) tick() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVisible) }
+  }, [])
 
   const refreshRef = useRef<() => void>(() => {})
 
@@ -140,9 +156,29 @@ export default function App() {
   }, [geoCoords, params])
 
   const result = useMemo<OptimizeResult | null>(
-    () => optimize(priceData, solarData, params),
-    [priceData, solarData, params]
+    () => optimize(priceData, solarData, params, now),
+    [priceData, solarData, params, now]
   )
+
+  const isGo = !!result && result.selectedTs.has(result.currentHour.ts)
+
+  const handleToggleNotify = useCallback(async (enabled: boolean) => {
+    if (enabled && 'Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission()
+    }
+    setNotifyEnabled(enabled)
+    lsSet(LS_NOTIFY, enabled)
+  }, [])
+
+  // fire a notification on the rising edge of the charging window (tab must be open)
+  const prevGoRef = useRef(false)
+  useEffect(() => {
+    if (notifyEnabled && isGo && !prevGoRef.current &&
+        'Notification' in window && Notification.permission === 'granted') {
+      new Notification('Charge now', { body: 'The optimal charging window has started.' })
+    }
+    prevGoRef.current = isGo
+  }, [isGo, notifyEnabled])
 
   return (
     <ThemeProvider theme={theme}>
@@ -201,6 +237,8 @@ export default function App() {
                 onRefreshPrices={handleRefreshPrices}
                 spotStatus={spotStatus}
                 solarStatus={solarStatus}
+                notifyEnabled={notifyEnabled}
+                onToggleNotify={handleToggleNotify}
               />
             </Collapse>
           </Box>
@@ -223,11 +261,18 @@ export default function App() {
             {!loading && !error && result && (
               <>
                 <StatusCard
-                  isGo={result.selectedTs.has(result.currentHour.ts)}
+                  isGo={isGo}
                   isFull={result.nHours <= 0}
                   firstSel={result.selectedList[0]}
                   lastSel={result.selectedList[result.selectedList.length - 1]}
                 />
+
+                {result.selectedList.length < result.nHours && (
+                  <Alert severity="warning">
+                    Only {result.selectedList.length} of {result.nHours} needed hours fit
+                    {params.chargeByEnabled ? ' before the deadline' : ' in the search window'} — target SOC won't be reached.
+                  </Alert>
+                )}
 
                 <Metrics
                   hoursNeeded={result.hoursNeeded}

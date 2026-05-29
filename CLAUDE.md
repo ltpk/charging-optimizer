@@ -26,10 +26,10 @@ src/
   main.tsx                 — React entry, ErrorBoundary (ThemeProvider lives in App.tsx)
   App.tsx                  — colorMode state + ThemeProvider, all data fetching, layout; result computed via useMemo(optimize(...))
   utils/
-    storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants
+    storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants; localDateStr() (local YYYY-MM-DD for daily cache keys)
     api.ts                 — fetchPrices(): merges spot-hinta.fi actual + nordpool-predict-fi forecast
     solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt()
-    optimization.ts        — calcNetCost(), optimize() — pure functions, no React imports
+    optimization.ts        — calcNetCost(), optimize(prices, solar, params, now=new Date()) — pure functions, no React imports
   components/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
@@ -42,7 +42,7 @@ src/
 
 1. `fetchPrices()` in `api.ts` fetches today + tomorrow from `spot-hinta.fi`, fills uncovered hours from `nordpool-predict-fi` (1 h TTL). Actual prices override predictions for the same hour (keyed by `YYYY-MM-DDTHH` UTC).
 2. Optionally `fetchSolarData()` fetches from `api.forecast.solar`. Timestamps are local browser time; converted to UTC keys on receipt.
-3. `App.tsx` passes `priceData`, `solarData`, `params` to `useMemo(() => optimize(...))`. `optimize()` returns `OptimizeResult | null`.
+3. `App.tsx` passes `priceData`, `solarData`, `params`, and a clock-aligned `now` to `useMemo(() => optimize(...))`. `now` advances at hour granularity (a 60 s interval + `visibilitychange` listener that only bumps state when the clock hour changes) so the now-line, current-hour, and Go/Wait status stay correct without a data refresh. `optimize()` returns `OptimizeResult | null`.
 4. `App.tsx` re-runs `fetchPrices()` hourly (or on demand via the sidebar refresh button). A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error only appears if the *initial* load fails. Manual refresh uses a `refreshRef` that exposes the inner `load()` closure so it shares the same `hasData` state.
 
 ## Optimization logic (`src/utils/optimization.ts`)
@@ -64,17 +64,19 @@ calcNetCost(params, spotCent, hour, solarW):
 - **Consecutive mode** (default): O(n) sliding window sum over `futureHours`
 - **Individual mode**: sort by netCost, pick cheapest N, re-sort chronologically
 - **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0
+- **Short window**: when a charge-by deadline or horizon fits fewer than `nHours`, `selectedList` is truncated; `totalCost` is capped at the achievable hours (`min(hoursNeeded, selectedList.length)`) and `App` renders a warning that target SOC won't be reached
 
 ## State / caching (localStorage)
 
 | Key | Contents | Invalidation |
 |-----|----------|--------------|
-| `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp | Stale if last entry is in the past, or (no tomorrow data AND cache older than 1 h) |
-| `ev_spot_v4` | nordpool-predict-fi forecast | 1 h TTL |
-| `ev_solar_v3` | Forecast.Solar watts map | Daily (calendar date) |
+| `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp | Stale once the last hour has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
+| `ev_spot_v4` | nordpool-predict-fi forecast | 1 h TTL (keyed on local date) |
+| `ev_solar_v3` | Forecast.Solar watts map | Daily (local calendar date) |
 | `ev_geo` | `{ lat, lon }` strings | Never (manual update) |
 | `ev_params_v6` | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change) |
 | `ev_color_mode` | `'light' \| 'dark' \| 'system'` | Never (persisted on every change) |
+| `ev_notify` | `boolean` — notify-on-charge toggle | Never (persisted on every change) |
 
 ## Key patterns
 
@@ -85,3 +87,5 @@ calcNetCost(params, spotCent, hour, solarW):
 **Chart**: `<Chart type="bar" data={...} options={...} plugins={[nowLinePlugin]} />` from react-chartjs-2. Mixed datasets use `type: 'line' as const` overrides. `animation: false` for performance. Cast `data as any` to avoid complex mixed-chart generics. Colors derived from `useTheme()` + MUI `alpha()` so they adapt to light/dark mode. The solar dataset and right-hand `y2` axis are included only when `params.solarEnabled`.
 
 **Params update**: `onParamChange<K extends keyof Params>(key: K, value: Params[K])` — generic key narrows the value type. Propagated from App → Sidebar via props.
+
+**Charge-now notification**: in-tab Web Notifications API, no service worker (only fires while the tab is open). `App` tracks the rising edge of `isGo` with a `useRef` and calls `new Notification` when permission is `granted`. The sidebar toggle (persisted to `ev_notify`) requests permission on enable; if the user blocked notifications it shows a hint.
