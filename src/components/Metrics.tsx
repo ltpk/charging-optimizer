@@ -37,13 +37,12 @@ interface Props {
 
 export function Metrics({ hoursNeeded, kWhNeeded, nHours, totalCost, solarNow, solarPct, solarSavings, avgNetCost, solarEnabled }: Props) {
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1.5 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: `repeat(${solarEnabled ? 4 : 3}, 1fr)` }, gap: 1.5 }}>
       <Metric label="Needed"             value={hoursNeeded.toFixed(1)} unit="h" sub={`${kWhNeeded.toFixed(1)} kWh`} />
       <Metric label="Duration (rounded)" value={nHours}                 unit="h" />
       <Metric label="Est. cost"          value={totalCost.toFixed(2)}   unit="€" sub={`avg ${avgNetCost.toFixed(1)} c/kWh`} />
-      {solarEnabled
-        ? <Metric label="Solar now"      value={Math.round(solarNow)}   unit="W" sub={`covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} €`} />
-        : <Metric label="Avg. net cost"  value={avgNetCost.toFixed(2)}  unit="c/kWh" />
+      {solarEnabled &&
+        <Metric label="Solar now"        value={Math.round(solarNow)}   unit="W" sub={`covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} €`} />
       }
     </Box>
   )

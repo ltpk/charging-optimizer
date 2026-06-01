@@ -33,7 +33,7 @@ src/
   components/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
-    Metrics.tsx            — 4-metric grid (needed h + kWh sub-label, duration, cost+avg c/kWh sub-label, solar now + "covers X% · saves Y €" sub-label OR avg net cost when solar disabled)
+    Metrics.tsx            — metric grid (needed h + kWh sub-label, duration, cost+avg c/kWh sub-label; "Solar now" + "covers X% · saves Y €" sub-label appended only when solar enabled, grid is 3 cols otherwise)
     HourList.tsx           — ranked cheapest hours with MUI LinearProgress bars
     PriceChart.tsx         — Chart.js mixed bar+line; nowLinePlugin + colorsRef via useRef to avoid stale closures
 ```
