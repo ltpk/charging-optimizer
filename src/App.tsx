@@ -277,6 +277,7 @@ export default function App() {
                 <Metrics
                   hoursNeeded={result.hoursNeeded}
                   kWhNeeded={result.kWhNeeded}
+                  completionTime={result.completionTime}
                   nHours={result.nHours}
                   totalCost={result.totalCost}
                   solarNow={result.solarNow}

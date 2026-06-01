@@ -117,6 +117,12 @@ export function optimize(
     ? selectedList.reduce((s, h) => s + Math.min(h.solarW / (params.chargingPower * 1000), 1), 0) / selectedList.length * 100
     : 0
 
+  // charging finishes partway through the last selected hour (= start + chargeHours for consecutive mode)
+  const lastSel = selectedList[selectedList.length - 1]
+  const completionTime = lastSel
+    ? new Date(lastSel.dt.getTime() + (chargeHours - (selectedList.length - 1)) * 3_600_000)
+    : null
+
   const nowTs = now.toISOString().slice(0, 13)
 
   return {
@@ -126,6 +132,7 @@ export function optimize(
     currentHour,
     hoursNeeded,
     kWhNeeded: hoursNeeded * params.chargingPower,
+    completionTime,
     nHours,
     totalCost,
     nowIdx:      hours.findIndex(h => h.ts === nowTs),

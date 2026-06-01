@@ -46,6 +46,7 @@ export interface OptimizeResult {
   currentHour: HourEntry
   hoursNeeded: number
   kWhNeeded: number
+  completionTime: Date | null
   nHours: number
   totalCost: number
   nowIdx: number
