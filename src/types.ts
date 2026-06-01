@@ -45,10 +45,13 @@ export interface OptimizeResult {
   selectedTs: Set<string>
   currentHour: HourEntry
   hoursNeeded: number
+  kWhNeeded: number
   nHours: number
   totalCost: number
   nowIdx: number
   hourSources: boolean[]
   solarNow: number
+  solarPct: number
+  solarSavings: number
   avgNetCost: number
 }

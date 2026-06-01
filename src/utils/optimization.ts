@@ -105,7 +105,17 @@ export function optimize(
     ? selectedList.reduce((s, h) => s + h.netCost, 0) / selectedList.length
     : 0
   // cap at achievable hours: a tight deadline/horizon can fit fewer hours than needed
-  const totalCost = avgNetCost * Math.min(hoursNeeded, selectedList.length) * params.chargingPower / 100
+  const chargeHours = Math.min(hoursNeeded, selectedList.length)
+  const totalCost = avgNetCost * chargeHours * params.chargingPower / 100
+
+  // grid-only baseline over the same hours → solar savings; mean solarShare → solar coverage
+  const avgGridCost = selectedList.length > 0
+    ? selectedList.reduce((s, h) => s + calcNetCost(params, h.spotCent, h.hour, 0), 0) / selectedList.length
+    : 0
+  const solarSavings = Math.max(0, (avgGridCost - avgNetCost) * chargeHours * params.chargingPower / 100)
+  const solarPct = selectedList.length > 0
+    ? selectedList.reduce((s, h) => s + Math.min(h.solarW / (params.chargingPower * 1000), 1), 0) / selectedList.length * 100
+    : 0
 
   const nowTs = now.toISOString().slice(0, 13)
 
@@ -115,11 +125,14 @@ export function optimize(
     selectedTs,
     currentHour,
     hoursNeeded,
+    kWhNeeded: hoursNeeded * params.chargingPower,
     nHours,
     totalCost,
     nowIdx:      hours.findIndex(h => h.ts === nowTs),
     hourSources: hours.map(h => h.source === 'actual'),
     solarNow:    params.solarEnabled ? getSolarForDt(solarData, now) : 0,
+    solarPct,
+    solarSavings,
     avgNetCost,
   }
 }

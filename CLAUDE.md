@@ -33,7 +33,7 @@ src/
   components/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
-    Metrics.tsx            — 4-metric grid (needed h, duration, cost+avg c/kWh sub-label, solar now OR avg net cost when solar disabled)
+    Metrics.tsx            — 4-metric grid (needed h + kWh sub-label, duration, cost+avg c/kWh sub-label, solar now + "covers X% · saves Y €" sub-label OR avg net cost when solar disabled)
     HourList.tsx           — ranked cheapest hours with MUI LinearProgress bars
     PriceChart.tsx         — Chart.js mixed bar+line; nowLinePlugin + colorsRef via useRef to avoid stale closures
 ```
@@ -64,6 +64,7 @@ calcNetCost(params, spotCent, hour, solarW):
 - **Consecutive mode** (default): O(n) sliding window sum over `futureHours`
 - **Individual mode**: sort by netCost, pick cheapest N, re-sort chronologically
 - **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0
+- **Solar coverage / savings**: `solarPct` = mean `solarShare` over `selectedList` × 100 (share of charge covered by solar); `solarSavings` = (grid-only avg net cost − actual avg net cost) over the same hours × achievable hours × `chargingPower` / 100. Both are 0 when solar is disabled.
 - **Short window**: when a charge-by deadline or horizon fits fewer than `nHours`, `selectedList` is truncated; `totalCost` is capped at the achievable hours (`min(hoursNeeded, selectedList.length)`) and `App` renders a warning that target SOC won't be reached
 
 ## State / caching (localStorage)
