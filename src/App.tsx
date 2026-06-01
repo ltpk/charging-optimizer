@@ -288,7 +288,7 @@ export default function App() {
                 />
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '200px 1fr' }, gap: 2, alignItems: 'start' }}>
-                  <HourList selectedList={result.selectedList} netCostMin={result.netCostMin} netCostMax={result.netCostMax} />
+                  <HourList selectedList={result.selectedList} netCostMin={result.netCostMin} netCostMax={result.netCostMax} currentTs={result.currentHour.ts} />
                   <PriceChart
                     hours={result.hours}
                     selectedTs={result.selectedTs}
