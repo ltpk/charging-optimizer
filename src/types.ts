@@ -51,6 +51,8 @@ export interface OptimizeResult {
   totalCost: number
   nowIdx: number
   hourSources: boolean[]
+  netCostMin: number
+  netCostMax: number
   solarNow: number
   solarPct: number
   solarSavings: number

@@ -1,7 +1,11 @@
 import { Box, Card, CardContent, LinearProgress, Typography } from '@mui/material'
 import type { HourEntry } from '../types'
 
-interface Props { selectedList: HourEntry[] }
+interface Props {
+  selectedList: HourEntry[]
+  netCostMin: number
+  netCostMax: number
+}
 
 function dayLabel(dt: Date): string | null {
   const today    = new Date()
@@ -11,11 +15,9 @@ function dayLabel(dt: Date): string | null {
   return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric' })
 }
 
-export function HourList({ selectedList }: Props) {
-  const netCostValues = selectedList.map(h => h.netCost)
-  const minNetto    = selectedList.length > 0 ? Math.min(...netCostValues) : 0
-  const maxNetto    = selectedList.length > 0 ? Math.max(...netCostValues) : 0.01
-  const netCostRange  = Math.max(maxNetto - minNetto, 0.01)
+export function HourList({ selectedList, netCostMin, netCostMax }: Props) {
+  // anchor bars to the spread of all upcoming hours: full+green = cheapest available, empty+red = priciest
+  const range = Math.max(netCostMax - netCostMin, 0.01)
 
   return (
     <Card variant="outlined">
@@ -25,8 +27,10 @@ export function HourList({ selectedList }: Props) {
         </Typography>
 
         {selectedList.map((h, i) => {
-          const pct  = (maxNetto - h.netCost) / netCostRange * 100
-          const date = dayLabel(h.dt)
+          const norm  = (h.netCost - netCostMin) / range          // 0 = cheapest, 1 = priciest
+          const pct   = (1 - norm) * 100
+          const color = norm < 0.34 ? 'success' : norm < 0.67 ? 'warning' : 'error'
+          const date  = dayLabel(h.dt)
           return (
             <Box
               key={h.ts}
@@ -48,7 +52,7 @@ export function HourList({ selectedList }: Props) {
               </Box>
 
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <LinearProgress variant="determinate" value={pct} color="success" />
+                <LinearProgress variant="determinate" value={pct} color={color} />
               </Box>
 
               <Typography variant="caption" color="text.secondary"

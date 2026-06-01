@@ -34,7 +34,7 @@ src/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
     Metrics.tsx            — metric grid (needed h + kWh sub-label, duration, cost+avg c/kWh sub-label; "Done by" completion time appended when charging is scheduled, "Solar now" + "covers X% · saves Y €" sub-label appended only when solar enabled; column count = 3 + those two optional boxes)
-    HourList.tsx           — ranked cheapest hours with MUI LinearProgress bars
+    HourList.tsx           — selected hours with MUI LinearProgress bars on an absolute scale: length + color (success/warning/error tiers at 0.34/0.67) are normalized against the candidate-hour net-cost range (`netCostMin`/`netCostMax`), so full+green = cheapest available, empty+red = priciest
     PriceChart.tsx         — Chart.js mixed bar+line; nowLinePlugin + colorsRef via useRef to avoid stale closures
 ```
 
@@ -66,6 +66,7 @@ calcNetCost(params, spotCent, hour, solarW):
 - **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0
 - **Solar coverage / savings**: `solarPct` = mean `solarShare` over `selectedList` × 100 (share of charge covered by solar); `solarSavings` = (grid-only avg net cost − actual avg net cost) over the same hours × achievable hours × `chargingPower` / 100. Both are 0 when solar is disabled.
 - **Completion time**: `completionTime` = last selected hour's start + `(chargeHours − (selectedList.length − 1))` h — i.e. start + duration for consecutive mode, end of the last cheap hour for individual mode. `null` when nothing is scheduled (battery full / target met).
+- **HourList scale**: `netCostMin`/`netCostMax` are the min/max net cost over `futureHours` (the candidate set). `HourList` normalizes each bar against this range so bar length + color tier reflect absolute cheapness vs. all upcoming hours, not just rank within the picked subset.
 - **Short window**: when a charge-by deadline or horizon fits fewer than `nHours`, `selectedList` is truncated; `totalCost` is capped at the achievable hours (`min(hoursNeeded, selectedList.length)`) and `App` renders a warning that target SOC won't be reached
 
 ## State / caching (localStorage)

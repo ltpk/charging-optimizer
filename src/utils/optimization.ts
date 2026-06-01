@@ -75,6 +75,11 @@ export function optimize(
 
   const futureHours = hours.filter(h => h.dt >= nowHour && (!deadlineDt || h.dt < deadlineDt))
 
+  // net-cost spread across the upcoming candidate hours — anchors the HourList bars to an absolute scale
+  const futureNet = futureHours.map(h => h.netCost)
+  const netCostMin = futureNet.length ? Math.min(...futureNet) : 0
+  const netCostMax = futureNet.length ? Math.max(...futureNet) : 0
+
   let selectedList: HourEntry[]
   if (params.consecutive) {
     const windowSize = Math.min(nHours, futureHours.length)
@@ -137,6 +142,8 @@ export function optimize(
     totalCost,
     nowIdx:      hours.findIndex(h => h.ts === nowTs),
     hourSources: hours.map(h => h.source === 'actual'),
+    netCostMin,
+    netCostMax,
     solarNow:    params.solarEnabled ? getSolarForDt(solarData, now) : 0,
     solarPct,
     solarSavings,
