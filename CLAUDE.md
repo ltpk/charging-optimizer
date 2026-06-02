@@ -18,7 +18,7 @@ bunx tsc --noEmit # type-check only
 
 No test suite. No environment variables needed.
 
-**rtk (token-saving proxy):** a global `PreToolUse` hook auto-rewrites most Bash commands (`git`, `gh`, `grep`, `find`, `ls`, `read`, `curl`, …) to their `rtk` equivalents transparently. The hook does **not** touch `bun`/`bunx`, so prefer these forms manually:
+**rtk (token-saving proxy):** a global `PreToolUse` hook auto-rewrites most Bash commands (`git`, `gh`, `grep`, `find`, `ls`, `read`, `curl`, …) to their `rtk` equivalents transparently. It rewrites **each segment** of compound commands joined by `&&`, `;`, or `||` (the producer side of a `|` pipe is rewritten; the consumer side is intentionally left native). The hook does **not** touch `bun`/`bunx` — that's the one gap requiring manual `rtk` forms:
 - type-check: `rtk tsc --noEmit` (uses the repo's local tsc) instead of `bunx tsc --noEmit`
 - build: `rtk err -- bun run build` to surface only errors/warnings
 - `bun run dev` is left as-is (long-running server, no benefit from filtering)
