@@ -48,12 +48,13 @@ export function Metrics({ hoursNeeded, kWhNeeded, completionTime, nHours, totalC
     : null
   const neededSub = [`${nHours} h rounded · ${kWhNeeded.toFixed(1)} kWh`]
   if (doneBy) neededSub.push(doneBy)
+  if (solarEnabled) neededSub.push(`solar covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} €`)
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: `repeat(${cols}, 1fr)` }, gap: 1.5 }}>
       <Metric label="Charge plan" value={hoursNeeded.toFixed(1)} unit="h" sub={neededSub} />
       <Metric label="Est. cost" value={totalCost.toFixed(2)}   unit="€" sub={`avg ${avgNetCost.toFixed(1)} c/kWh`} />
       {solarEnabled &&
-        <Metric label="Solar now" value={Math.round(solarNow)}  unit="W" sub={`covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} €`} />
+        <Metric label="Solar now" value={Math.round(solarNow)}  unit="W" />
       }
     </Box>
   )

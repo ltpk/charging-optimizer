@@ -33,7 +33,7 @@ src/
   components/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
-    Metrics.tsx            — metric grid. "Charge plan" box (needed h as value; sub-lines = "N h rounded · X kWh" and, when charging is scheduled, "done by HH:MM[ d.m.]"), "Est. cost" box (€ + avg c/kWh sub-label), and a "Solar now" box (W + "covers X% · saves Y €" sub-label) shown only when solar enabled. `Metric.sub` accepts string | string[] (one caption line each). Column count = 2 + (solarEnabled ? 1 : 0)
+    Metrics.tsx            — metric grid. "Charge plan" box (needed h as value; sub-lines = "N h rounded · X kWh", then "done by HH:MM[ d.m.]" when charging is scheduled, then "solar covers X% · saves Y €" when solar enabled — both scoped to the recommended charging hours), "Est. cost" box (€ + avg c/kWh sub-label), and a "Solar now" box (current instantaneous output W, no sub-label) shown only when solar enabled. `Metric.sub` accepts string | string[] (one caption line each). Column count = 2 + (solarEnabled ? 1 : 0)
     HourList.tsx           — selected hours with MUI LinearProgress bars on an absolute scale: length + color (success/warning/error tiers at 0.34/0.67) are normalized against the candidate-hour net-cost range (`netCostMin`/`netCostMax`), so full+green = cheapest available, empty+red = priciest. Marks the current hour (`currentTs`) with a "now" label + highlighted row, and shows each hour's Δ vs the cheapest selected hour
     PriceChart.tsx         — Chart.js mixed bar+line; nowLinePlugin + colorsRef via useRef to avoid stale closures
 ```
