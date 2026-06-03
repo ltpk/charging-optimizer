@@ -181,7 +181,7 @@ export const PriceChart = memo(function PriceChart({ hours, selectedTs, nowIdx, 
   return (
     <Card variant="outlined">
       <CardContent>
-        <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+        <Typography variant="overline" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
           Price &amp; optimal window
         </Typography>
 

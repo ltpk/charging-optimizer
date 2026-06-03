@@ -11,7 +11,7 @@ import type { Params, GeoCoords } from '../types'
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+    <Typography variant="overline" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
       {children}
     </Typography>
   )
@@ -32,7 +32,7 @@ function SliderField({ label, value, unit, min, max, step, onChange }: SliderFie
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
         <Typography variant="body2" color="text.secondary">{label}</Typography>
-        <Typography variant="body2" fontWeight="medium">{value} {unit}</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{value} {unit}</Typography>
       </Box>
       <Slider
         value={value}
@@ -58,7 +58,7 @@ function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
   const id = useId()
   return (
     <Box>
-      <Typography component="label" htmlFor={id} variant="body2" color="text.secondary" display="block" gutterBottom>
+      <Typography component="label" htmlFor={id} variant="body2" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
         {label}
       </Typography>
       <TextField
@@ -66,7 +66,7 @@ function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
         type="number"
         defaultValue={value}
         key={value}   // force re-mount when value changes externally (e.g. localStorage restore)
-        inputProps={{ step, min, max }}
+        slotProps={{ htmlInput: { step, min, max } }}
         size="small"
         fullWidth
         onBlur={e => {
@@ -121,10 +121,10 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       <Box>
         <SectionLabel>Battery State</SectionLabel>
         <SliderField label="SOC now"    value={params.socNow}    unit="%" min={0} max={100} step={1} onChange={p('socNow')} />
-        <Box mt={1.5} />
+        <Box sx={{ mt: 1.5 }} />
         <SliderField label="SOC target" value={params.socTarget} unit="%" min={10} max={100} step={10} onChange={p('socTarget')} />
         {params.socNow >= params.socTarget && (
-          <Typography variant="caption" color="warning.main" display="block" mt={0.5}>
+          <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
             SOC now ≥ target — battery already full
           </Typography>
         )}
@@ -195,7 +195,7 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
                     type="number"
                     defaultValue={params.chargeByHour}
                     key={params.chargeByHour}
-                    inputProps={{ min: 0, max: 23, step: 1 }}
+                    slotProps={{ htmlInput: { min: 0, max: 23, step: 1 } }}
                     size="small"
                     sx={{ width: 60 }}
                     onBlur={e => {
@@ -290,7 +290,7 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
           label={<Typography variant="body2" color="text.secondary">Notify when charging starts</Typography>}
         />
         {notifyEnabled && typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
-          <Typography variant="caption" color="warning.main" display="block">
+          <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
             Notifications blocked in browser settings
           </Typography>
         )}

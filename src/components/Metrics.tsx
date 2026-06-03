@@ -5,7 +5,7 @@ function Metric({ label, value, unit, sub }: { label: string; value: string | nu
   return (
     <Card variant="outlined">
       <CardContent>
-        <Typography variant="overline" color="text.secondary" display="block">
+        <Typography variant="overline" color="text.secondary" sx={{ display: 'block' }}>
           {label}
         </Typography>
         <Typography variant="h5">
@@ -17,7 +17,7 @@ function Metric({ label, value, unit, sub }: { label: string; value: string | nu
           )}
         </Typography>
         {subLines.map((line, i) => (
-          <Typography key={i} variant="caption" color="text.secondary" display="block">
+          <Typography key={i} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             {line}
           </Typography>
         ))}

@@ -24,7 +24,7 @@ export function HourList({ selectedList, netCostMin, netCostMax, currentTs }: Pr
   return (
     <Card variant="outlined">
       <CardContent>
-        <Typography variant="overline" color="text.secondary" display="block" gutterBottom>
+        <Typography variant="overline" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
           Cheapest hours
         </Typography>
 
@@ -45,14 +45,14 @@ export function HourList({ selectedList, netCostMin, netCostMax, currentTs }: Pr
               }}
             >
               <Box sx={{ minWidth: 48 }}>
-                <Typography variant="body2" fontWeight="medium" color="primary"
-                  sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                <Typography variant="body2" color="primary"
+                  sx={{ fontWeight: 'medium', fontVariantNumeric: 'tabular-nums' }}>
                   {h.dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                 </Typography>
                 {isNow
-                  ? <Typography variant="caption" color="primary" fontWeight="medium" display="block">now</Typography>
+                  ? <Typography variant="caption" color="primary" sx={{ fontWeight: 'medium', display: 'block' }}>now</Typography>
                   : date && (
-                    <Typography variant="caption" color="text.secondary" display="block">
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                       {date}
                     </Typography>
                   )}
