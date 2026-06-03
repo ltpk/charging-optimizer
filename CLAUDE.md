@@ -11,19 +11,22 @@ A React + TypeScript + Vite application for optimizing EV charging times based o
 ## Commands
 
 ```bash
-bun run dev      # dev server
-bun run build    # production build
-bunx tsc --noEmit # type-check only
+bun run dev       # dev server
+bun run build     # production build
+bun run typecheck # type-check only (tsc --noEmit)
 ```
 
 No test suite. No environment variables needed.
 
+**Pre-commit (Husky + lint-staged):** `.husky/pre-commit` runs `bunx lint-staged` (Prettier `--write` on staged files, config in `.prettierrc`/`.lintstagedrc`) then `bun run typecheck`. The `prepare: "husky || true"` script sets it up on install — the `|| true` keeps the Pages CI's `bun install` from ever failing on it. No `test` step (no suite).
+
 **rtk (token-saving proxy):** a global `PreToolUse` hook auto-rewrites most Bash commands (`git`, `gh`, `grep`, `find`, `ls`, `read`, `curl`, …) to their `rtk` equivalents transparently. It rewrites **each segment** of compound commands joined by `&&`, `;`, or `||` (the producer side of a `|` pipe is rewritten; the consumer side is intentionally left native). The hook does **not** touch `bun`/`bunx` — that's the one gap requiring manual `rtk` forms:
+
 - type-check: `rtk tsc --noEmit` (uses the repo's local tsc) instead of `bunx tsc --noEmit`
 - build: `rtk err -- bun run build` to surface only errors/warnings
 - `bun run dev` is left as-is (long-running server, no benefit from filtering)
 
-**Dependencies & CI:** local installs use `bun`, but the committed lockfile is the **npm `package-lock.json`** (no `bun.lock` — it's gitignored-by-omission, never commit one). Vite 8 is **Rolldown-based**, so it pulls a per-platform native binary (`@rolldown/binding-<platform>`) as an optional dep. The lockfile **must list all 15 platform bindings**, or the GitHub Pages deploy (`.github/workflows/deploy.yml`, `bun install` on linux) fails with `Cannot find module '@rolldown/binding-linux-x64-gnu'`. Regenerating the lockfile against an existing macOS `node_modules` prunes it to darwin-only — instead regenerate from a **clean tree**: `rm -rf node_modules package-lock.json bun.lock && npm install --package-lock-only`, then verify with `node -e "console.log(Object.keys(require('./package-lock.json').packages).filter(k=>/@rolldown\/binding/.test(k)).length)"` (expect 15). Dependabot (`.github/dependabot.yml`) keeps npm deps + Actions current (weekly; minor/patch grouped, majors individual).
+**Dependencies & CI:** `bun` everywhere. The committed lockfile is **`bun.lock`** (text format — commit it; there is no `package-lock.json`). CI deploy (`.github/workflows/deploy.yml`) runs `bun install --frozen-lockfile` on linux. Vite 8 is **Rolldown-based** and pulls a per-platform native binary (`@rolldown/binding-<platform>`) as an optional dep; `bun.lock` records all 15 platform binding entries and bun installs only the one matching the runner's OS/CPU, so linux gets `@rolldown/binding-linux-x64-gnu` automatically — no manual lockfile surgery (this replaces the old npm `package-lock.json` + clean-tree-regen workaround). After changing deps, run `bun install` and commit the updated `bun.lock`. Dependabot (`.github/dependabot.yml`, `package-ecosystem: bun`) keeps deps + Actions current (weekly; minor/patch grouped, majors individual).
 
 ## Architecture
 
@@ -50,7 +53,7 @@ src/
 1. `fetchPrices()` in `api.ts` fetches today + tomorrow from `spot-hinta.fi`, fills uncovered hours from `nordpool-predict-fi` (1 h TTL). Actual prices override predictions for the same hour (keyed by `YYYY-MM-DDTHH` UTC).
 2. Optionally `fetchSolarData()` fetches from `api.forecast.solar`. Timestamps are local browser time; converted to UTC keys on receipt.
 3. `App.tsx` passes `priceData`, `solarData`, `params`, and a clock-aligned `now` to `useMemo(() => optimize(...))`. `now` advances at hour granularity (a 60 s interval + `visibilitychange` listener that only bumps state when the clock hour changes) so the now-line, current-hour, and Go/Wait status stay correct without a data refresh. `optimize()` returns `OptimizeResult | null`.
-4. `App.tsx` re-runs `fetchPrices()` hourly (or on demand via the sidebar refresh button). A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error only appears if the *initial* load fails. Manual refresh uses a `refreshRef` that exposes the inner `load()` closure so it shares the same `hasData` state.
+4. `App.tsx` re-runs `fetchPrices()` hourly (or on demand via the sidebar refresh button). A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error only appears if the _initial_ load fails. Manual refresh uses a `refreshRef` that exposes the inner `load()` closure so it shares the same `hasData` state.
 
 ## Optimization logic (`src/utils/optimization.ts`)
 
@@ -78,15 +81,15 @@ calcNetCost(params, spotCent, hour, solarW):
 
 ## State / caching (localStorage)
 
-| Key | Contents | Invalidation |
-|-----|----------|--------------|
-| `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp | Stale once the last hour has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
-| `ev_spot_v4` | nordpool-predict-fi forecast | 1 h TTL (keyed on local date) |
-| `ev_solar_v3` | Forecast.Solar watts map | Daily (local calendar date) |
-| `ev_geo` | `{ lat, lon }` strings | Never (manual update) |
-| `ev_params_v6` | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change) |
-| `ev_color_mode` | `'light' \| 'dark' \| 'system'` | Never (persisted on every change) |
-| `ev_notify` | `boolean` — notify-on-charge toggle | Never (persisted on every change) |
+| Key                 | Contents                                                                                   | Invalidation                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp                                               | Stale once the last hour has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
+| `ev_spot_v4`        | nordpool-predict-fi forecast                                                               | 1 h TTL (keyed on local date)                                                              |
+| `ev_solar_v3`       | Forecast.Solar watts map                                                                   | Daily (local calendar date)                                                                |
+| `ev_geo`            | `{ lat, lon }` strings                                                                     | Never (manual update)                                                                      |
+| `ev_params_v6`      | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change)                                                          |
+| `ev_color_mode`     | `'light' \| 'dark' \| 'system'`                                                            | Never (persisted on every change)                                                          |
+| `ev_notify`         | `boolean` — notify-on-charge toggle                                                        | Never (persisted on every change)                                                          |
 
 ## Key patterns
 
