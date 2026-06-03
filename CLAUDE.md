@@ -23,6 +23,8 @@ No test suite. No environment variables needed.
 - build: `rtk err -- bun run build` to surface only errors/warnings
 - `bun run dev` is left as-is (long-running server, no benefit from filtering)
 
+**Dependencies & CI:** local installs use `bun`, but the committed lockfile is the **npm `package-lock.json`** (no `bun.lock` — it's gitignored-by-omission, never commit one). Vite 8 is **Rolldown-based**, so it pulls a per-platform native binary (`@rolldown/binding-<platform>`) as an optional dep. The lockfile **must list all 15 platform bindings**, or the GitHub Pages deploy (`.github/workflows/deploy.yml`, `bun install` on linux) fails with `Cannot find module '@rolldown/binding-linux-x64-gnu'`. Regenerating the lockfile against an existing macOS `node_modules` prunes it to darwin-only — instead regenerate from a **clean tree**: `rm -rf node_modules package-lock.json bun.lock && npm install --package-lock-only`, then verify with `node -e "console.log(Object.keys(require('./package-lock.json').packages).filter(k=>/@rolldown\/binding/.test(k)).length)"` (expect 15). Dependabot (`.github/dependabot.yml`) keeps npm deps + Actions current (weekly; minor/patch grouped, majors individual).
+
 ## Architecture
 
 ```
