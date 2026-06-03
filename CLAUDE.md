@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A React + TypeScript + Vite application for optimizing EV charging times based on Finnish electricity spot prices and optional solar production forecasts. Personal use only — no auth, no backend.
 
-**Stack:** React 18, TypeScript 5 (strict), MUI v5 (light/dark/system theme), Chart.js 4 via react-chartjs-2, Vite 5.
+**Stack:** React 19, TypeScript 6 (strict), MUI v9 (light/dark/system theme), Chart.js 4 via react-chartjs-2, Vite 8.
 
 ## Commands
 
