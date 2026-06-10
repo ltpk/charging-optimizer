@@ -41,13 +41,13 @@ src/
   utils/
     storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants; localDateStr() (local YYYY-MM-DD for daily cache keys)
     api.ts                 — fetchPrices(): merges spot-hinta.fi actual + nordpool-predict-fi forecast
-    solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match). UI azimuth is compass convention (0=N 180=S); fetchSolarData converts to Forecast.Solar's 0=S convention (`solarAz - 180`) when building the URL
+    solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match). UI azimuth is compass convention (0=N 180=S); fetchSolarData converts to Forecast.Solar's 0=S convention (`solarAz - 180`) when building the URL, and integrates the API's instantaneous watts points (piecewise-linear) into per-hour averages
     optimization.ts        — calcNetCost(), isNightHour(), optimize(prices, solar, params, now=new Date()) — pure functions, no React imports
     optimization.test.ts   — bun:test unit tests for the optimization core
   components/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
-    Metrics.tsx            — metric grid. "Charge plan" box (needed h as value; sub-lines = "N h rounded · X kWh", then "done by HH:MM[ d.m.]" when charging is scheduled, then "solar covers X% · saves Y €" when solar enabled — both scoped to the recommended charging hours), "Est. cost" box (€ + avg c/kWh sub-label), and a "Solar now" box (current instantaneous output W, no sub-label) shown only when solar enabled. `Metric.sub` accepts string | string[] (one caption line each). Column count = 2 + (solarEnabled ? 1 : 0)
+    Metrics.tsx            — metric grid. "Charge plan" box (needed h as value; sub-lines = "N h rounded · X kWh", then "done by HH:MM[ d.m.]" when charging is scheduled, then "solar covers X% · saves Y €" when solar enabled — both scoped to the recommended charging hours), "Est. cost" box (€ + avg c/kWh sub-label), and a "Solar now" box (current hour's average output W, no sub-label) shown only when solar enabled. `Metric.sub` accepts string | string[] (one caption line each). Column count = 2 + (solarEnabled ? 1 : 0)
     HourList.tsx           — selected hours with MUI LinearProgress bars on an absolute scale: length + color (success/warning/error tiers at 0.34/0.67) are normalized against the candidate-hour net-cost range (`netCostMin`/`netCostMax`), so full+green = cheapest available, empty+red = priciest. Marks the current hour (`currentTs`) with a "now" label + highlighted row, and shows each hour's Δ vs the cheapest selected hour
     PriceChart.tsx         — Chart.js mixed bar+line; nowLinePlugin + colorsRef via useRef to avoid stale closures
 ```
@@ -90,7 +90,7 @@ calcNetCost(params, spotCent, hour, solarW):
 | ------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp                                               | Stale once the last hour has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
 | `ev_spot_v4`        | nordpool-predict-fi forecast                                                               | 1 h TTL (keyed on local date)                                                              |
-| `ev_solar_v5`       | Forecast.Solar watts map + `key` (location/panel params)                                   | Daily (local calendar date) or key mismatch                                                |
+| `ev_solar_v6`       | Forecast.Solar per-hour average watts map + `key` (location/panel params)                  | Daily (local calendar date) or key mismatch                                                |
 | `ev_geo`            | `{ lat, lon }` strings                                                                     | Never (manual update)                                                                      |
 | `ev_params_v6`      | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change)                                                          |
 | `ev_color_mode`     | `'light' \| 'dark' \| 'system'`                                                            | Never (persisted on every change)                                                          |

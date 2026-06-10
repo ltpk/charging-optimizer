@@ -35,10 +35,28 @@ export async function fetchSolarData(coords: GeoCoords, params: SolarParams): Pr
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const json = (await res.json()) as ForecastSolarResponse
 
+  // the API's watts values are instantaneous power at each timestamp (sunrise, top of hour,
+  // sunset) — integrate the piecewise-linear curve into per-hour averages so an hour's value
+  // is the energy actually produced in it, not the power at its first instant
+  const pts = Object.entries(json.result?.watts ?? {})
+    .map(([ts, w]) => ({ t: new Date(ts.replace(' ', 'T')).getTime(), w }))
+    .filter(p => !isNaN(p.t))
+    .sort((a, b) => a.t - b.t)
+
   const data: SolarData = {}
-  for (const [ts, w] of Object.entries(json.result?.watts ?? {})) {
-    const dt = new Date(ts.replace(' ', 'T'))
-    if (!isNaN(dt.getTime())) data[dt.toISOString().slice(0, 13)] = w
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i]
+    const b = pts[i + 1]
+    if (b.t <= a.t || (a.w === 0 && b.w === 0)) continue
+    const slope = (b.w - a.w) / (b.t - a.t)
+    for (let hour = Math.floor(a.t / 3_600_000) * 3_600_000; hour < b.t; hour += 3_600_000) {
+      const s = Math.max(a.t, hour)
+      const e = Math.min(b.t, hour + 3_600_000)
+      if (e <= s) continue
+      const avgW = a.w + slope * ((s + e) / 2 - a.t)
+      const key = new Date(hour).toISOString().slice(0, 13)
+      data[key] = (data[key] ?? 0) + (avgW * (e - s)) / 3_600_000
+    }
   }
 
   lsSet(LS_SOLAR, { date: localDateStr(), key: solarCacheKey(coords, params), data })
