@@ -27,7 +27,9 @@ export function loadCachedSolar(coords: GeoCoords | null, params: SolarParams): 
 export async function fetchSolarData(coords: GeoCoords, params: SolarParams): Promise<SolarData> {
   const { lat, lon } = coords
   const { solarDec, solarAz, solarKwp } = params
-  const url = `https://api.forecast.solar/estimate/${lat}/${lon}/${solarDec}/${solarAz}/${solarKwp}`
+  // UI azimuth is compass convention (0=N 90=E 180=S 270=W); Forecast.Solar wants -180…180 with 0=S
+  const apiAz = solarAz - 180
+  const url = `https://api.forecast.solar/estimate/${lat}/${lon}/${solarDec}/${apiAz}/${solarKwp}`
 
   const res = await fetch(url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)

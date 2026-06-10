@@ -41,7 +41,7 @@ src/
   utils/
     storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants; localDateStr() (local YYYY-MM-DD for daily cache keys)
     api.ts                 — fetchPrices(): merges spot-hinta.fi actual + nordpool-predict-fi forecast
-    solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match)
+    solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match). UI azimuth is compass convention (0=N 180=S); fetchSolarData converts to Forecast.Solar's 0=S convention (`solarAz - 180`) when building the URL
     optimization.ts        — calcNetCost(), isNightHour(), optimize(prices, solar, params, now=new Date()) — pure functions, no React imports
     optimization.test.ts   — bun:test unit tests for the optimization core
   components/
@@ -90,7 +90,7 @@ calcNetCost(params, spotCent, hour, solarW):
 | ------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp                                               | Stale once the last hour has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
 | `ev_spot_v4`        | nordpool-predict-fi forecast                                                               | 1 h TTL (keyed on local date)                                                              |
-| `ev_solar_v4`       | Forecast.Solar watts map + `key` (location/panel params)                                   | Daily (local calendar date) or key mismatch                                                |
+| `ev_solar_v5`       | Forecast.Solar watts map + `key` (location/panel params)                                   | Daily (local calendar date) or key mismatch                                                |
 | `ev_geo`            | `{ lat, lon }` strings                                                                     | Never (manual update)                                                                      |
 | `ev_params_v6`      | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change)                                                          |
 | `ev_color_mode`     | `'light' \| 'dark' \| 'system'`                                                            | Never (persisted on every change)                                                          |

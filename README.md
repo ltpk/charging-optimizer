@@ -56,7 +56,7 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 ## Solar setup
 
 1. Click **Get GPS** to store your coordinates
-2. Set panel tilt, azimuth, and peak power (kWp)
+2. Set panel tilt, azimuth (compass degrees: 0 = N, 90 = E, 180 = S, 270 = W — converted automatically to Forecast.Solar's convention), and peak power (kWp)
 3. Click **Fetch solar forecast** — data is cached until midnight (changing location or panel parameters prompts a refetch)
 
 ## APIs used
