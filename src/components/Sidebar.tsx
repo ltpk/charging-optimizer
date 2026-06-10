@@ -1,11 +1,22 @@
 import { useId } from 'react'
 import {
-  Box, Divider, Slider, TextField, Checkbox, ToggleButton, ToggleButtonGroup,
-  FormControlLabel, Button, Typography, Paper, CircularProgress, IconButton,
+  Box,
+  Divider,
+  Slider,
+  TextField,
+  Checkbox,
+  ToggleButton,
+  ToggleButtonGroup,
+  FormControlLabel,
+  Button,
+  Typography,
+  Paper,
+  CircularProgress,
+  IconButton,
 } from '@mui/material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import RefreshIcon from '@mui/icons-material/Refresh'
-import type { Params, GeoCoords } from '../types'
+import type { Params, GeoCoords, ApiStatus } from '../types'
 
 // ── helpers ────────────────────────────────────────────────────
 
@@ -31,12 +42,18 @@ function SliderField({ label, value, unit, min, max, step, onChange }: SliderFie
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="body2" color="text.secondary">{label}</Typography>
-        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>{value} {unit}</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+          {value} {unit}
+        </Typography>
       </Box>
       <Slider
         value={value}
-        min={min} max={max} step={step}
+        min={min}
+        max={max}
+        step={step}
         size="small"
         aria-label={label}
         onChange={(_, v) => onChange(v as number)}
@@ -58,14 +75,21 @@ function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
   const id = useId()
   return (
     <Box>
-      <Typography component="label" htmlFor={id} variant="body2" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
+      <Typography
+        component="label"
+        htmlFor={id}
+        variant="body2"
+        color="text.secondary"
+        gutterBottom
+        sx={{ display: 'block' }}
+      >
         {label}
       </Typography>
       <TextField
         id={id}
         type="number"
         defaultValue={value}
-        key={value}   // force re-mount when value changes externally (e.g. localStorage restore)
+        key={value} // force re-mount when value changes externally (e.g. localStorage restore)
         slotProps={{ htmlInput: { step, min, max } }}
         size="small"
         fullWidth
@@ -94,14 +118,28 @@ interface Props {
   onGetGeo: () => void
   onFetchSolar: () => void
   onRefreshPrices: () => void
-  spotStatus: { ok: boolean; warn: boolean; text: string }
-  solarStatus: { ok: boolean; warn: boolean; text: string }
+  spotStatus: ApiStatus
+  solarStatus: ApiStatus
   notifyEnabled: boolean
   onToggleNotify: (v: boolean) => void
 }
 
-export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSolar, onRefreshPrices, spotStatus, solarStatus, notifyEnabled, onToggleNotify }: Props) {
-  const p = <K extends keyof Params>(key: K) => (v: Params[K]) => onParamChange(key, v)
+export function Sidebar({
+  params,
+  onParamChange,
+  geoCoords,
+  onGetGeo,
+  onFetchSolar,
+  onRefreshPrices,
+  spotStatus,
+  solarStatus,
+  notifyEnabled,
+  onToggleNotify,
+}: Props) {
+  const p =
+    <K extends keyof Params>(key: K) =>
+    (v: Params[K]) =>
+      onParamChange(key, v)
 
   return (
     <Paper
@@ -110,9 +148,12 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       elevation={0}
       sx={{
         borderRadius: 0,
-        px: 2, py: 2.5,
+        px: 2,
+        py: 2.5,
         width: { md: 300 },
-        display: 'flex', flexDirection: 'column', gap: 1.75,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.75,
         overflowY: 'auto',
         overflowX: 'hidden',
       }}
@@ -120,9 +161,17 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       {/* Battery state */}
       <Box>
         <SectionLabel>Battery State</SectionLabel>
-        <SliderField label="SOC now"    value={params.socNow}    unit="%" min={0} max={100} step={1} onChange={p('socNow')} />
+        <SliderField label="SOC now" value={params.socNow} unit="%" min={0} max={100} step={1} onChange={p('socNow')} />
         <Box sx={{ mt: 1.5 }} />
-        <SliderField label="SOC target" value={params.socTarget} unit="%" min={10} max={100} step={10} onChange={p('socTarget')} />
+        <SliderField
+          label="SOC target"
+          value={params.socTarget}
+          unit="%"
+          min={10}
+          max={100}
+          step={10}
+          onChange={p('socTarget')}
+        />
         {params.socNow >= params.socTarget && (
           <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
             SOC now ≥ target — battery already full
@@ -136,9 +185,20 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       <Box>
         <SectionLabel>Charging Parameters</SectionLabel>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          <NumField label="Battery capacity (kWh)" value={params.batteryCapacity} step={1}   onCommit={p('batteryCapacity')} />
-          <NumField label="Charging loss (%)"      value={params.chargingLoss}    step={1}   onCommit={p('chargingLoss')} />
-          <NumField label="Charging power (kW)"    value={params.chargingPower}   step={0.1} min={0.1} onCommit={p('chargingPower')} />
+          <NumField
+            label="Battery capacity (kWh)"
+            value={params.batteryCapacity}
+            step={1}
+            onCommit={p('batteryCapacity')}
+          />
+          <NumField label="Charging loss (%)" value={params.chargingLoss} step={1} onCommit={p('chargingLoss')} />
+          <NumField
+            label="Charging power (kW)"
+            value={params.chargingPower}
+            step={0.1}
+            min={0.1}
+            onCommit={p('chargingPower')}
+          />
           <FormControlLabel
             sx={{ mx: 0, gap: 0.5 }}
             control={
@@ -148,7 +208,11 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
                 onChange={e => onParamChange('consecutive', e.target.checked)}
               />
             }
-            label={<Typography variant="body2" color="text.secondary">Consecutive hours</Typography>}
+            label={
+              <Typography variant="body2" color="text.secondary">
+                Consecutive hours
+              </Typography>
+            }
           />
           <Box>
             <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -159,7 +223,9 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
               exclusive
               fullWidth
               size="small"
-              onChange={(_, v: number | null) => { if (v != null) onParamChange('horizonH', v) }}
+              onChange={(_, v: number | null) => {
+                if (v != null) onParamChange('horizonH', v)
+              }}
             >
               <ToggleButton value={24}>24 h</ToggleButton>
               <ToggleButton value={48}>48 h</ToggleButton>
@@ -176,7 +242,11 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
                   onChange={e => onParamChange('chargeByEnabled', e.target.checked)}
                 />
               }
-              label={<Typography variant="body2" color="text.secondary">Charge by</Typography>}
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  Charge by
+                </Typography>
+              }
             />
             {params.chargeByEnabled && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
@@ -184,7 +254,9 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
                   value={params.chargeByDay}
                   exclusive
                   size="small"
-                  onChange={(_, v: number | null) => { if (v != null) onParamChange('chargeByDay', v) }}
+                  onChange={(_, v: number | null) => {
+                    if (v != null) onParamChange('chargeByDay', v)
+                  }}
                 >
                   <ToggleButton value={0}>Today</ToggleButton>
                   <ToggleButton value={1}>Tmrw</ToggleButton>
@@ -203,7 +275,9 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
                       if (!isNaN(v) && v >= 0 && v <= 23) onParamChange('chargeByHour', v)
                     }}
                   />
-                  <Typography variant="body2" color="text.secondary">:00</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    :00
+                  </Typography>
                 </Box>
               </Box>
             )}
@@ -217,10 +291,25 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       <Box>
         <SectionLabel>Electricity Parameters</SectionLabel>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          <NumField label="Transfer day (c/kWh)"               value={params.transferDay}   step={0.01} onCommit={p('transferDay')} />
-          <NumField label="Transfer night (c/kWh, 22–07)"      value={params.transferNight} step={0.01} onCommit={p('transferNight')} />
-          <NumField label="Buy margin (c/kWh, excl. VAT)"      value={params.buyMargin}     step={0.01} onCommit={p('buyMargin')} />
-          <NumField label="Sell margin (c/kWh, from spot)"     value={params.sellMargin}    step={0.01} onCommit={p('sellMargin')} />
+          <NumField label="Transfer day (c/kWh)" value={params.transferDay} step={0.01} onCommit={p('transferDay')} />
+          <NumField
+            label="Transfer night (c/kWh, 22–07)"
+            value={params.transferNight}
+            step={0.01}
+            onCommit={p('transferNight')}
+          />
+          <NumField
+            label="Buy margin (c/kWh, excl. VAT)"
+            value={params.buyMargin}
+            step={0.01}
+            onCommit={p('buyMargin')}
+          />
+          <NumField
+            label="Sell margin (c/kWh, from spot)"
+            value={params.sellMargin}
+            step={0.01}
+            onCommit={p('sellMargin')}
+          />
         </Box>
       </Box>
 
@@ -239,23 +328,59 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
                 onChange={e => onParamChange('solarEnabled', e.target.checked)}
               />
             }
-            label={<Typography variant="body2" color="text.secondary">Enable</Typography>}
+            label={
+              <Typography variant="body2" color="text.secondary">
+                Enable
+              </Typography>
+            }
           />
         </Box>
         {params.solarEnabled && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-            <NumField label="Tilt angle (°, 0=horizontal)"      value={params.solarDec} step={1} min={0} max={90}  onCommit={p('solarDec')} />
-            <NumField label="Azimuth (°, 0=N 90=E 180=S 270=W)" value={params.solarAz}  step={1} min={0} max={359} onCommit={p('solarAz')} />
-            <NumField label="Peak power (kWp)"                  value={params.solarKwp} step={0.1} min={0.1} max={30} onCommit={p('solarKwp')} />
+            <NumField
+              label="Tilt angle (°, 0=horizontal)"
+              value={params.solarDec}
+              step={1}
+              min={0}
+              max={90}
+              onCommit={p('solarDec')}
+            />
+            <NumField
+              label="Azimuth (°, 0=N 90=E 180=S 270=W)"
+              value={params.solarAz}
+              step={1}
+              min={0}
+              max={359}
+              onCommit={p('solarAz')}
+            />
+            <NumField
+              label="Peak power (kWp)"
+              value={params.solarKwp}
+              step={0.1}
+              min={0.1}
+              max={30}
+              onCommit={p('solarKwp')}
+            />
 
             <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>Location</Typography>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                Location
+              </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Button variant="outlined" size="small" onClick={onGetGeo}>
                   Get GPS
                 </Button>
-                <Typography variant="body2" color="text.secondary"
-                  sx={{ flex: 1, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    flex: 1,
+                    textAlign: 'right',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {geoCoords ? `${geoCoords.lat}, ${geoCoords.lon}` : '–'}
                 </Typography>
               </Box>
@@ -267,7 +392,11 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
               </Button>
               <Typography
                 variant="body2"
-                sx={{ display: 'block', mt: 0.75, color: solarStatus.ok ? 'success.main' : solarStatus.warn ? 'warning.main' : 'text.secondary' }}
+                sx={{
+                  display: 'block',
+                  mt: 0.75,
+                  color: solarStatus.ok ? 'success.main' : solarStatus.warn ? 'warning.main' : 'text.secondary',
+                }}
               >
                 {solarStatus.text}
               </Typography>
@@ -280,14 +409,12 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       <Box sx={{ mt: 'auto' }}>
         <FormControlLabel
           sx={{ mx: 0, gap: 0.5 }}
-          control={
-            <Checkbox
-              size="small"
-              checked={notifyEnabled}
-              onChange={e => onToggleNotify(e.target.checked)}
-            />
+          control={<Checkbox size="small" checked={notifyEnabled} onChange={e => onToggleNotify(e.target.checked)} />}
+          label={
+            <Typography variant="body2" color="text.secondary">
+              Notify when charging starts
+            </Typography>
           }
-          label={<Typography variant="body2" color="text.secondary">Notify when charging starts</Typography>}
         />
         {notifyEnabled && typeof Notification !== 'undefined' && Notification.permission === 'denied' && (
           <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
@@ -300,7 +427,9 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
       <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <StatusDot ok={spotStatus.ok} warn={spotStatus.warn} />
-          <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>{spotStatus.text}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+            {spotStatus.text}
+          </Typography>
           <IconButton size="small" onClick={onRefreshPrices} aria-label="Refresh prices" sx={{ p: 0.25 }}>
             <RefreshIcon sx={{ fontSize: 14 }} />
           </IconButton>
@@ -308,7 +437,9 @@ export function Sidebar({ params, onParamChange, geoCoords, onGetGeo, onFetchSol
         {params.solarEnabled && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <StatusDot ok={solarStatus.ok} warn={solarStatus.warn} />
-            <Typography variant="body2" color="text.secondary">{solarStatus.text}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {solarStatus.text}
+            </Typography>
           </Box>
         )}
       </Box>

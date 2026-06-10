@@ -14,11 +14,14 @@ A React + TypeScript + Vite application for optimizing EV charging times based o
 bun run dev       # dev server
 bun run build     # production build
 bun run typecheck # type-check only (tsc --noEmit)
+bun test          # unit tests (src/utils/optimization.test.ts)
 ```
 
-No test suite. No environment variables needed.
+No environment variables needed. Tests cover the pure optimization core only (`bun:test`; types via `@types/bun` + `"types": ["bun"]` in tsconfig — no extra test framework).
 
-**Pre-commit (Husky + lint-staged):** `.husky/pre-commit` runs `bunx lint-staged` (Prettier `--write` on staged files, config in `.prettierrc`/`.lintstagedrc`) then `bun run typecheck`. The `prepare: "husky || true"` script sets it up on install — the `|| true` keeps the Pages CI's `bun install` from ever failing on it. No `test` step (no suite).
+**Pre-commit (Husky + lint-staged):** `.husky/pre-commit` runs `bunx lint-staged` (Prettier `--write` on staged files, config in `.prettierrc`/`.lintstagedrc`), then `bun run typecheck`, then `bun test`. The `prepare: "husky || true"` script sets it up on install — the `|| true` keeps the Pages CI's `bun install` from ever failing on it.
+
+**Code style:** the whole repo is Prettier-formatted; `.prettierrc` matches the codebase idiom (no semicolons, single quotes, trailing commas, no arrow parens, print width 120), so `bunx prettier --check .` passes and lint-staged produces no churn. Write new code in that style.
 
 **rtk (token-saving proxy):** a global `PreToolUse` hook auto-rewrites most Bash commands (`git`, `gh`, `grep`, `find`, `ls`, `read`, `curl`, …) to their `rtk` equivalents transparently. It rewrites **each segment** of compound commands joined by `&&`, `;`, or `||` (the producer side of a `|` pipe is rewritten; the consumer side is intentionally left native). The hook does **not** touch `bun`/`bunx` — that's the one gap requiring manual `rtk` forms:
 
@@ -32,14 +35,15 @@ No test suite. No environment variables needed.
 
 ```
 src/
-  types.ts                 — shared interfaces: PriceEntry, HourEntry, Params, OptimizeResult, SolarData, GeoCoords
+  types.ts                 — shared interfaces: PriceEntry, HourEntry, Params, OptimizeResult, SolarData, GeoCoords, ApiStatus
   main.tsx                 — React entry, ErrorBoundary (ThemeProvider lives in App.tsx)
   App.tsx                  — colorMode state + ThemeProvider, all data fetching, layout; result computed via useMemo(optimize(...))
   utils/
     storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants; localDateStr() (local YYYY-MM-DD for daily cache keys)
     api.ts                 — fetchPrices(): merges spot-hinta.fi actual + nordpool-predict-fi forecast
-    solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt()
-    optimization.ts        — calcNetCost(), optimize(prices, solar, params, now=new Date()) — pure functions, no React imports
+    solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match)
+    optimization.ts        — calcNetCost(), isNightHour(), optimize(prices, solar, params, now=new Date()) — pure functions, no React imports
+    optimization.test.ts   — bun:test unit tests for the optimization core
   components/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
@@ -53,7 +57,8 @@ src/
 1. `fetchPrices()` in `api.ts` fetches today + tomorrow from `spot-hinta.fi`, fills uncovered hours from `nordpool-predict-fi` (1 h TTL). Actual prices override predictions for the same hour (keyed by `YYYY-MM-DDTHH` UTC).
 2. Optionally `fetchSolarData()` fetches from `api.forecast.solar`. Timestamps are local browser time; converted to UTC keys on receipt.
 3. `App.tsx` passes `priceData`, `solarData`, `params`, and a clock-aligned `now` to `useMemo(() => optimize(...))`. `now` advances at hour granularity (a 60 s interval + `visibilitychange` listener that only bumps state when the clock hour changes) so the now-line, current-hour, and Go/Wait status stay correct without a data refresh. `optimize()` returns `OptimizeResult | null`.
-4. `App.tsx` re-runs `fetchPrices()` hourly (or on demand via the sidebar refresh button). A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error only appears if the _initial_ load fails. Manual refresh uses a `refreshRef` that exposes the inner `load()` closure so it shares the same `hasData` state.
+4. `App.tsx` re-runs `fetchPrices()` hourly on success, or after **5 min** when a fetch fails (or on demand via the sidebar refresh button). A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error (with a Retry button) only appears if the _initial_ load fails. Manual refresh uses a `refreshRef` that exposes the inner `load()` closure so it shares the same `hasData` state.
+5. Solar cache validity is keyed on `solarCacheKey(coords, params)` (lat/lon + tilt/azimuth/kWp) in addition to the calendar date. Changing location or panel params mid-session flips the sidebar solar status to a "refetch forecast" warning (`fetchedSolarKeyRef` in App tracks the key of the last fetch).
 
 ## Optimization logic (`src/utils/optimization.ts`)
 
@@ -68,16 +73,16 @@ calcNetCost(params, spotCent, hour, solarW):
 ```
 
 - `ALV = 1.255` — Finnish VAT 25.5%
-- Transfer fee: `transferNight` for hours 22–07, `transferDay` otherwise
+- Transfer fee: `transferNight` for hours 22–07 (`isNightHour()`, shared with PriceChart), `transferDay` otherwise
 - Graph window: last 6 h of past + `horizonH` hours ahead
-- Optimization window: future hours only, bounded by `horizonH` and optional charge-by deadline (`chargeByDay` offset 0/1/2 + `chargeByHour`)
-- **Consecutive mode** (default): O(n) sliding window sum over `futureHours`
-- **Individual mode**: sort by netCost, pick cheapest N, re-sort chronologically
-- **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0
-- **Solar coverage / savings**: `solarPct` = mean `solarShare` over `selectedList` × 100 (share of charge covered by solar); `solarSavings` = (grid-only avg net cost − actual avg net cost) over the same hours × achievable hours × `chargingPower` / 100. Both are 0 when solar is disabled.
-- **Completion time**: `completionTime` = last selected hour's start + `(chargeHours − (selectedList.length − 1))` h — i.e. start + duration for consecutive mode, end of the last cheap hour for individual mode. `null` when nothing is scheduled (battery full / target met).
+- **Slot capacity** (`hourCapacity`): future hours count as 1; the in-progress hour counts only for its remaining fraction, and is dropped from candidates below `MIN_HOUR_CAPACITY = 0.25` (< 15 min left)
+- Candidate set (`futureHours`): hours with usable capacity, bounded by `horizonH` and optional charge-by deadline (`chargeByDay` offset 0/1/2 + `chargeByHour`); a deadline already in the past sets `deadlinePassed` and yields an empty candidate set
+- **Consecutive mode** (default): exact-cost scan — for each start index, walk forward consuming `hoursNeeded` at per-slot capacity; pick max achieved hours, then min cost, then earliest (O(n²), n ≤ 72)
+- **Individual mode**: sort by netCost, take cheapest slots until their combined capacity covers `hoursNeeded`, re-sort chronologically
+- **Usage walk**: cost/completion derived by consuming `hoursNeeded` chronologically over `selectedList` (current hour starts at `now`, last slot partial). Yields `achievableHours`, energy-weighted `totalCost`/`avgNetCost`, the grid-only baseline for `solarSavings`, usage-weighted `solarPct`, and `completionTime` (`null` when nothing scheduled; end of last slot when the need doesn't fit)
+- **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0; `solarPct`/`solarSavings` are then 0
 - **HourList scale**: `netCostMin`/`netCostMax` are the min/max net cost over `futureHours` (the candidate set). `HourList` normalizes each bar against this range so bar length + color tier reflect absolute cheapness vs. all upcoming hours, not just rank within the picked subset.
-- **Short window**: when a charge-by deadline or horizon fits fewer than `nHours`, `selectedList` is truncated; `totalCost` is capped at the achievable hours (`min(hoursNeeded, selectedList.length)`) and `App` renders a warning that target SOC won't be reached
+- **Short window**: when `achievableHours < hoursNeeded` (tight deadline/horizon), `App` renders a warning with the achievable vs. needed hours; a passed deadline gets its own warning instead
 
 ## State / caching (localStorage)
 
@@ -85,7 +90,7 @@ calcNetCost(params, spotCent, hour, solarW):
 | ------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp                                               | Stale once the last hour has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
 | `ev_spot_v4`        | nordpool-predict-fi forecast                                                               | 1 h TTL (keyed on local date)                                                              |
-| `ev_solar_v3`       | Forecast.Solar watts map                                                                   | Daily (local calendar date)                                                                |
+| `ev_solar_v4`       | Forecast.Solar watts map + `key` (location/panel params)                                   | Daily (local calendar date) or key mismatch                                                |
 | `ev_geo`            | `{ lat, lon }` strings                                                                     | Never (manual update)                                                                      |
 | `ev_params_v6`      | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change)                                                          |
 | `ev_color_mode`     | `'light' \| 'dark' \| 'system'`                                                            | Never (persisted on every change)                                                          |
@@ -101,4 +106,4 @@ calcNetCost(params, spotCent, hour, solarW):
 
 **Params update**: `onParamChange<K extends keyof Params>(key: K, value: Params[K])` — generic key narrows the value type. Propagated from App → Sidebar via props.
 
-**Charge-now notification**: in-tab Web Notifications API, no service worker (only fires while the tab is open). `App` tracks the rising edge of `isGo` with a `useRef` and calls `new Notification` when permission is `granted`. The sidebar toggle (persisted to `ev_notify`) requests permission on enable; if the user blocked notifications it shows a hint.
+**Charge-now notification**: in-tab Web Notifications API, no service worker (only fires while the tab is open). `App` tracks the rising edge of `isGo` with a `useRef` (initialized `null` and baselined on the first `result`, so a window already active at page load doesn't notify) and calls `new Notification` when permission is `granted`. The sidebar toggle (persisted to `ev_notify`) requests permission on enable; if the user blocked notifications it shows a hint.

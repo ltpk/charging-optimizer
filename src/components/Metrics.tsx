@@ -1,6 +1,16 @@
 import { Box, Card, CardContent, Typography } from '@mui/material'
 
-function Metric({ label, value, unit, sub }: { label: string; value: string | number; unit?: string; sub?: string | string[] }) {
+function Metric({
+  label,
+  value,
+  unit,
+  sub,
+}: {
+  label: string
+  value: string | number
+  unit?: string
+  sub?: string | string[]
+}) {
   const subLines = sub == null ? [] : Array.isArray(sub) ? sub : [sub]
   return (
     <Card variant="outlined">
@@ -39,7 +49,18 @@ interface Props {
   solarEnabled: boolean
 }
 
-export function Metrics({ hoursNeeded, kWhNeeded, completionTime, nHours, totalCost, solarNow, solarPct, solarSavings, avgNetCost, solarEnabled }: Props) {
+export function Metrics({
+  hoursNeeded,
+  kWhNeeded,
+  completionTime,
+  nHours,
+  totalCost,
+  solarNow,
+  solarPct,
+  solarSavings,
+  avgNetCost,
+  solarEnabled,
+}: Props) {
   const cols = 2 + (solarEnabled ? 1 : 0)
   const sameDay = completionTime && completionTime.toDateString() === new Date().toDateString()
   const doneBy = completionTime
@@ -52,10 +73,8 @@ export function Metrics({ hoursNeeded, kWhNeeded, completionTime, nHours, totalC
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: `repeat(${cols}, 1fr)` }, gap: 1.5 }}>
       <Metric label="Charge plan" value={hoursNeeded.toFixed(1)} unit="h" sub={neededSub} />
-      <Metric label="Est. cost" value={totalCost.toFixed(2)}   unit="€" sub={`avg ${avgNetCost.toFixed(1)} c/kWh`} />
-      {solarEnabled &&
-        <Metric label="Solar now" value={Math.round(solarNow)}  unit="W" />
-      }
+      <Metric label="Est. cost" value={totalCost.toFixed(2)} unit="€" sub={`avg ${avgNetCost.toFixed(1)} c/kWh`} />
+      {solarEnabled && <Metric label="Solar now" value={Math.round(solarNow)} unit="W" />}
     </Box>
   )
 }

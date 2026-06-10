@@ -18,11 +18,17 @@ export interface GeoCoords {
   lon: string
 }
 
+export interface ApiStatus {
+  ok: boolean
+  warn: boolean
+  text: string
+}
+
 export interface Params {
   socNow: number
   socTarget: number
   batteryCapacity: number
-  chargingLoss: number    // stored as percent (e.g. 11 means 11%)
+  chargingLoss: number // stored as percent (e.g. 11 means 11%)
   chargingPower: number
   consecutive: boolean
   horizonH: number
@@ -45,8 +51,10 @@ export interface OptimizeResult {
   selectedTs: Set<string>
   currentHour: HourEntry
   hoursNeeded: number
+  achievableHours: number
   kWhNeeded: number
   completionTime: Date | null
+  deadlinePassed: boolean
   nHours: number
   totalCost: number
   nowIdx: number

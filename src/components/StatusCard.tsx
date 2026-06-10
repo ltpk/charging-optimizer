@@ -3,21 +3,24 @@ import { Alert, AlertTitle, Typography } from '@mui/material'
 import type { HourEntry } from '../types'
 
 const fmtFi = (dt: Date) =>
-  dt.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' }) + ' ' +
+  dt.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' }) +
+  ' ' +
   dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
 
 const fmtTime = (dt: Date) => dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
 
-const addHour = (dt: Date) => { const e = new Date(dt); e.setHours(e.getHours() + 1); return e }
+const addHour = (dt: Date) => {
+  const e = new Date(dt)
+  e.setHours(e.getHours() + 1)
+  return e
+}
 
 function fmtRemaining(target: Date, now: Date): string {
   const diff = target.getTime() - now.getTime()
   if (diff <= 0) return ''
   const h = Math.floor(diff / 3_600_000)
   const m = Math.floor((diff % 3_600_000) / 60_000)
-  return h > 0
-    ? `${h}:${String(m).padStart(2, '0')} remaining`
-    : `${m} min remaining`
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')} remaining` : `${m} min remaining`
 }
 
 interface Props {
@@ -35,7 +38,7 @@ export function StatusCard({ isGo, isFull, firstSel, lastSel }: Props) {
   }, [])
 
   const severity = isFull ? 'info' : isGo ? 'success' : 'warning'
-  const title    = isFull ? 'Battery full' : isGo ? 'Charge now' : 'Wait'
+  const title = isFull ? 'Battery full' : isGo ? 'Charge now' : 'Wait'
 
   let sub = '–'
   let rem = ''
@@ -53,7 +56,10 @@ export function StatusCard({ isGo, isFull, firstSel, lastSel }: Props) {
   return (
     <Alert severity={severity}>
       <AlertTitle>{title}</AlertTitle>
-      <Typography variant="body2">{sub}{rem && ` — ${rem}`}</Typography>
+      <Typography variant="body2">
+        {sub}
+        {rem && ` — ${rem}`}
+      </Typography>
     </Alert>
   )
 }

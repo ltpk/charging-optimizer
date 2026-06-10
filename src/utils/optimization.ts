@@ -3,42 +3,62 @@ import type { Params, PriceEntry, HourEntry, SolarData, OptimizeResult } from '.
 
 export const ALV = 1.255
 
+const EPS = 1e-9
+// minimum usable fraction of the in-progress hour — below this, charging waits for the next hour
+const MIN_HOUR_CAPACITY = 0.25
+
 export const DEFAULT_PARAMS: Params = {
-  socNow:          50,
-  socTarget:       80,
+  socNow: 50,
+  socTarget: 80,
   batteryCapacity: 77,
-  chargingLoss:    11,
-  chargingPower:   5.5,
-  consecutive:     true,
-  horizonH:        24,
+  chargingLoss: 11,
+  chargingPower: 5.5,
+  consecutive: true,
+  horizonH: 24,
   chargeByEnabled: false,
-  chargeByHour:    7,
-  chargeByDay:     1,
-  transferDay:     5.11,
-  transferNight:   3.12,
-  buyMargin:       0.54,
-  sellMargin:      0.25,
-  solarDec:        30,
-  solarAz:         180,
-  solarKwp:        5.92,
-  solarEnabled:    false,
+  chargeByHour: 7,
+  chargeByDay: 1,
+  transferDay: 5.11,
+  transferNight: 3.12,
+  buyMargin: 0.54,
+  sellMargin: 0.25,
+  solarDec: 30,
+  solarAz: 180,
+  solarKwp: 5.92,
+  solarEnabled: false,
 }
 
 function calcHours(p: Params): number {
-  const energyToCharge = (p.socTarget - p.socNow) / 100 * p.batteryCapacity
-  const gridEnergy     = energyToCharge / (1 - p.chargingLoss / 100)
+  const energyToCharge = ((p.socTarget - p.socNow) / 100) * p.batteryCapacity
+  const gridEnergy = energyToCharge / (1 - p.chargingLoss / 100)
   return Math.max(0, gridEnergy / p.chargingPower)
 }
 
+export function isNightHour(hour: number): boolean {
+  return hour >= 22 || hour < 7
+}
+
 function getTransfer(p: Params, hour: number): number {
-  return (hour >= 22 || hour < 7) ? p.transferNight : p.transferDay
+  return isNightHour(hour) ? p.transferNight : p.transferDay
+}
+
+function solarShare(p: Params, solarW: number): number {
+  return Math.min(solarW / (p.chargingPower * 1000), 1.0)
+}
+
+// usable charging fraction of an hour slot: 1 for future hours, the remaining fraction for the current hour
+function hourCapacity(dt: Date, now: Date): number {
+  const end = dt.getTime() + 3_600_000
+  if (end <= now.getTime()) return 0
+  if (dt.getTime() >= now.getTime()) return 1
+  return (end - now.getTime()) / 3_600_000
 }
 
 export function calcNetCost(p: Params, spotCent: number, hour: number, solarW: number): number {
-  const solarShare = Math.min(solarW / (p.chargingPower * 1000), 1.0)
-  const buyPrice   = (1 - solarShare) * (spotCent + getTransfer(p, hour) + p.buyMargin * ALV)
-  const sellPrice  = Math.max(0, spotCent / ALV - p.sellMargin)
-  return buyPrice - solarShare * sellPrice
+  const share = solarShare(p, solarW)
+  const buyPrice = (1 - share) * (spotCent + getTransfer(p, hour) + p.buyMargin * ALV)
+  const sellPrice = Math.max(0, spotCent / ALV - p.sellMargin)
+  return buyPrice - share * sellPrice
 }
 
 export function optimize(
@@ -50,9 +70,9 @@ export function optimize(
   if (!priceData.length) return null
 
   const hoursNeeded = calcHours(params)
-  const nHours      = Math.ceil(hoursNeeded)
+  const nHours = Math.ceil(hoursNeeded)
 
-  const pastCutoff    = new Date(now.getTime() - 6 * 3_600_000)
+  const pastCutoff = new Date(now.getTime() - 6 * 3_600_000)
 
   const horizonCutoff = new Date(now.getTime() + params.horizonH * 3_600_000)
 
@@ -65,68 +85,102 @@ export function optimize(
 
   if (!hours.length) return null
 
-  const nowHour     = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours())
-
   let deadlineDt: Date | null = null
+  let deadlinePassed = false
   if (params.chargeByEnabled) {
-    const candidate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + params.chargeByDay, params.chargeByHour)
+    const candidate = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + params.chargeByDay,
+      params.chargeByHour,
+    )
+    deadlinePassed = candidate.getTime() <= now.getTime()
     deadlineDt = new Date(Math.min(candidate.getTime(), horizonCutoff.getTime()))
   }
 
-  const futureHours = hours.filter(h => h.dt >= nowHour && (!deadlineDt || h.dt < deadlineDt))
+  // candidates: hours with usable charging capacity left (the in-progress hour counts
+  // only for its remaining fraction, and is dropped once it's nearly over)
+  const futureHours = hours.filter(
+    h => hourCapacity(h.dt, now) >= MIN_HOUR_CAPACITY && (!deadlineDt || h.dt < deadlineDt),
+  )
 
   // net-cost spread across the upcoming candidate hours — anchors the HourList bars to an absolute scale
   const futureNet = futureHours.map(h => h.netCost)
   const netCostMin = futureNet.length ? Math.min(...futureNet) : 0
   const netCostMax = futureNet.length ? Math.max(...futureNet) : 0
 
-  let selectedList: HourEntry[]
-  if (params.consecutive) {
-    const windowSize = Math.min(nHours, futureHours.length)
-    let bestStart = 0, bestSum = Infinity
-    if (windowSize > 0) {
-      let sum = futureHours.slice(0, windowSize).reduce((a, h) => a + h.netCost, 0)
-      bestSum = sum
-      for (let i = 1; i <= futureHours.length - windowSize; i++) {
-        sum += futureHours[i + windowSize - 1].netCost - futureHours[i - 1].netCost
-        if (sum < bestSum) { bestSum = sum; bestStart = i }
+  let selectedList: HourEntry[] = []
+  if (hoursNeeded > EPS && futureHours.length) {
+    if (params.consecutive) {
+      // exact-cost scan (n ≤ 72): from each start, walk forward consuming hoursNeeded at
+      // per-slot capacity; prefer the most achievable window, then the cheapest, then the earliest
+      let bestCost = Infinity,
+        bestAchieved = -1
+      for (let i = 0; i < futureHours.length; i++) {
+        let remaining = hoursNeeded,
+          cost = 0
+        let end = i
+        for (let j = i; j < futureHours.length && remaining > EPS; j++) {
+          const h = futureHours[j]
+          const used = Math.min(hourCapacity(h.dt, now), remaining)
+          cost += used * h.netCost
+          remaining -= used
+          end = j + 1
+        }
+        const achieved = hoursNeeded - remaining
+        if (achieved > bestAchieved + EPS || (achieved > bestAchieved - EPS && cost < bestCost - EPS)) {
+          bestAchieved = achieved
+          bestCost = cost
+          selectedList = futureHours.slice(i, end)
+        }
       }
+    } else {
+      // cheapest individual slots until their combined capacity covers the need
+      const sorted = [...futureHours].sort((a, b) => a.netCost - b.netCost)
+      let remaining = hoursNeeded
+      for (const h of sorted) {
+        if (remaining <= EPS) break
+        selectedList.push(h)
+        remaining -= hourCapacity(h.dt, now)
+      }
+      selectedList.sort((a, b) => a.dt.getTime() - b.dt.getTime())
     }
-    selectedList = futureHours.slice(bestStart, bestStart + windowSize)
-  } else {
-    const sorted = [...futureHours].sort((a, b) => a.netCost - b.netCost)
-    selectedList = sorted.slice(0, Math.min(nHours, futureHours.length)).sort((a, b) => a.dt.getTime() - b.dt.getTime())
   }
 
   const selectedTs = new Set(selectedList.map(h => h.ts))
 
-  const currentHour = hours.find(h => {
-    const end = new Date(h.dt)
-    end.setHours(end.getHours() + 1)
-    return h.dt <= now && now < end
-  }) ?? hours[0]
+  const currentHour =
+    hours.find(h => {
+      const end = new Date(h.dt)
+      end.setHours(end.getHours() + 1)
+      return h.dt <= now && now < end
+    }) ?? hours[0]
 
-  const avgNetCost = selectedList.length > 0
-    ? selectedList.reduce((s, h) => s + h.netCost, 0) / selectedList.length
-    : 0
-  // cap at achievable hours: a tight deadline/horizon can fit fewer hours than needed
-  const chargeHours = Math.min(hoursNeeded, selectedList.length)
-  const totalCost = avgNetCost * chargeHours * params.chargingPower / 100
+  // usage walk: consume hoursNeeded chronologically over the selected slots (the current
+  // hour starts at `now`, the last slot is used only partially) — yields the actual
+  // energy-weighted cost, the grid-only baseline for solar savings, and the completion time
+  let remaining = hoursNeeded
+  let costSum = 0,
+    gridSum = 0,
+    shareSum = 0
+  let completionTime: Date | null = null
+  for (const h of selectedList) {
+    const startMs = Math.max(h.dt.getTime(), now.getTime())
+    const used = Math.min(hourCapacity(h.dt, now), remaining)
+    costSum += used * h.netCost
+    gridSum += used * calcNetCost(params, h.spotCent, h.hour, 0)
+    shareSum += used * solarShare(params, h.solarW)
+    remaining -= used
+    completionTime = new Date(startMs + used * 3_600_000)
+    if (remaining <= EPS) break
+  }
 
-  // grid-only baseline over the same hours → solar savings; mean solarShare → solar coverage
-  const avgGridCost = selectedList.length > 0
-    ? selectedList.reduce((s, h) => s + calcNetCost(params, h.spotCent, h.hour, 0), 0) / selectedList.length
-    : 0
-  const solarSavings = Math.max(0, (avgGridCost - avgNetCost) * chargeHours * params.chargingPower / 100)
-  const solarPct = selectedList.length > 0
-    ? selectedList.reduce((s, h) => s + Math.min(h.solarW / (params.chargingPower * 1000), 1), 0) / selectedList.length * 100
-    : 0
-
-  // charging finishes partway through the last selected hour (= start + chargeHours for consecutive mode)
-  const lastSel = selectedList[selectedList.length - 1]
-  const completionTime = lastSel
-    ? new Date(lastSel.dt.getTime() + (chargeHours - (selectedList.length - 1)) * 3_600_000)
-    : null
+  // a tight deadline/horizon (or a partial current hour) can fit fewer hours than needed
+  const achievableHours = hoursNeeded - remaining
+  const totalCost = (costSum * params.chargingPower) / 100
+  const avgNetCost = achievableHours > EPS ? costSum / achievableHours : 0
+  const solarSavings = Math.max(0, ((gridSum - costSum) * params.chargingPower) / 100)
+  const solarPct = achievableHours > EPS ? (shareSum / achievableHours) * 100 : 0
 
   const nowTs = now.toISOString().slice(0, 13)
 
@@ -136,15 +190,17 @@ export function optimize(
     selectedTs,
     currentHour,
     hoursNeeded,
+    achievableHours,
     kWhNeeded: hoursNeeded * params.chargingPower,
     completionTime,
+    deadlinePassed,
     nHours,
     totalCost,
-    nowIdx:      hours.findIndex(h => h.ts === nowTs),
+    nowIdx: hours.findIndex(h => h.ts === nowTs),
     hourSources: hours.map(h => h.source === 'actual'),
     netCostMin,
     netCostMax,
-    solarNow:    params.solarEnabled ? getSolarForDt(solarData, now) : 0,
+    solarNow: params.solarEnabled ? getSolarForDt(solarData, now) : 0,
     solarPct,
     solarSavings,
     avgNetCost,
