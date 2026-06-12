@@ -5,8 +5,6 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement,
-  BarController,
   LineElement,
   LineController,
   PointElement,
@@ -18,17 +16,7 @@ import type { Plugin, ScriptableLineSegmentContext, ChartOptions } from 'chart.j
 import { isNightHour } from '../utils/optimization'
 import type { HourEntry, Params } from '../types'
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  BarController,
-  LineElement,
-  LineController,
-  PointElement,
-  Tooltip,
-  Filler,
-)
+ChartJS.register(CategoryScale, LinearScale, LineElement, LineController, PointElement, Tooltip, Filler)
 
 interface Props {
   hours: HourEntry[]
@@ -59,14 +47,17 @@ export const PriceChart = memo(function PriceChart({
   // Ref pattern: plugin is memoized once, reads latest values via ref
   const colorsRef = useRef({ W, P, S, gridColor, tickColor, nightBg, isDark })
   colorsRef.current = { W, P, S, gridColor, tickColor, nightBg, isDark }
-  const nowIdxRef = useRef(-1)
-  nowIdxRef.current = nowIdx
+  // Ticks mark hour starts; the now-line sits at the elapsed fraction of the current hour
+  const nowPos =
+    nowIdx >= 0 ? nowIdx + Math.min(Math.max((Date.now() - hours[nowIdx].dt.getTime()) / 3600000, 0), 1) : -1
+  const nowPosRef = useRef(-1)
+  nowPosRef.current = nowPos
 
-  const nowLinePlugin = useMemo<Plugin<'bar'>>(
+  const nowLinePlugin = useMemo<Plugin<'line'>>(
     () => ({
       id: 'nowLine',
       afterDraw(chart) {
-        const idx = nowIdxRef.current
+        const idx = nowPosRef.current
         if (idx < 0) return
         const { W } = colorsRef.current
         const { ctx, chartArea, scales } = chart
@@ -89,27 +80,66 @@ export const PriceChart = memo(function PriceChart({
     [],
   )
 
+  // Hour i shades the span from tick i to tick i+1; drawn as rects so it aligns
+  // with hour starts instead of bar cells centered on the ticks
+  const shadeRef = useRef<{ sel: boolean[]; night: boolean[] }>({ sel: [], night: [] })
+  shadeRef.current = {
+    sel: hours.map(h => selectedTs.has(h.ts)),
+    night: hours.map(h => isNightHour(h.hour)),
+  }
+
+  const bgShadePlugin = useMemo<Plugin<'line'>>(
+    () => ({
+      id: 'bgShade',
+      beforeDatasetsDraw(chart) {
+        const { sel, night } = shadeRef.current
+        const { S, nightBg } = colorsRef.current
+        const { ctx, chartArea, scales } = chart
+        const x = scales['x']
+        ctx.save()
+        for (let i = 0; i < sel.length; i++) {
+          if (!sel[i] && !night[i]) continue
+          const left = Math.max(x.getPixelForValue(i), chartArea.left)
+          const right = Math.min(x.getPixelForValue(i + 1), chartArea.right)
+          if (right <= left) continue
+          if (night[i]) {
+            ctx.fillStyle = nightBg
+            ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top)
+          }
+          if (sel[i]) {
+            ctx.fillStyle = alpha(S, 0.25)
+            ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top)
+          }
+        }
+        ctx.restore()
+      },
+    }),
+    [],
+  )
+
   const solarEnabled = params.solarEnabled
 
   const showDate = horizonH > 24
-  const labels = hours.map(h => {
-    const t = h.dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const fmtLabel = (dt: Date, first: boolean) => {
+    const t = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     if (!showDate) return t
-    if (h.hour === 0 || h === hours[0])
-      return h.dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric' }) + ' ' + t
+    if (dt.getHours() === 0 || first)
+      return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric' }) + ' ' + t
     return t
-  })
+  }
+  // One extra end-of-window label so the last hour's span has width on the axis
+  const labels = hours.map((h, i) => fmtLabel(h.dt, i === 0))
+  if (hours.length > 0) labels.push(fmtLabel(new Date(hours[hours.length - 1].dt.getTime() + 3600000), false))
 
   const netCostData = hours.map(h => +h.netCost.toFixed(3))
   const spotData = hours.map(h => +h.spotCent.toFixed(3))
   const transferData = hours.map(h => (isNightHour(h.hour) ? params.transferNight : params.transferDay))
+  // Hold the last hour's fee through to the end-of-window tick
+  if (transferData.length > 0) transferData.push(transferData[transferData.length - 1])
   const solarKw = hours.map(h => +(h.solarW / 1000).toFixed(3))
   const maxY = Math.max(...netCostData, ...spotData, ...transferData, 1) * 1.2
   const minY = Math.min(0, ...netCostData, ...spotData) * 1.1
   const maxY2 = Math.max(...solarKw, 1) * 1.5
-
-  const selBg = hours.map(h => (selectedTs.has(h.ts) ? alpha(S, 0.25) : 'rgba(0,0,0,0)'))
-  const nightBgData = hours.map(h => (isNightHour(h.hour) ? nightBg : 'rgba(0,0,0,0)'))
 
   const segBorder = (ctx: ScriptableLineSegmentContext, actual: string, predicted: string, past: string) => {
     const i = ctx.p0DataIndex
@@ -163,7 +193,7 @@ export const PriceChart = memo(function PriceChart({
         borderWidth: 1,
         pointRadius: 0,
         tension: 0,
-        stepped: 'before' as const,
+        stepped: 'after' as const,
         yAxisID: 'y',
         fill: false,
         order: 3,
@@ -186,30 +216,10 @@ export const PriceChart = memo(function PriceChart({
             },
           ]
         : []),
-      {
-        type: 'bar' as const,
-        label: '_sel',
-        data: hours.map(() => [-9999, 9999]),
-        backgroundColor: selBg,
-        yAxisID: 'y',
-        barPercentage: 1,
-        categoryPercentage: 1,
-        order: 10,
-      },
-      {
-        type: 'bar' as const,
-        label: '_night',
-        data: hours.map(() => [-9999, 9999]),
-        backgroundColor: nightBgData,
-        yAxisID: 'y',
-        barPercentage: 1,
-        categoryPercentage: 1,
-        order: 11,
-      },
     ],
   }
 
-  const options: ChartOptions<'bar'> = {
+  const options: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
@@ -218,7 +228,7 @@ export const PriceChart = memo(function PriceChart({
       tooltip: {
         mode: 'index',
         intersect: false,
-        filter: item => !item.dataset.label!.startsWith('_'),
+        filter: item => item.dataIndex < hours.length,
         callbacks: {
           title: ctx => ctx[0]?.label ?? '',
           label: ctx => {
@@ -236,8 +246,9 @@ export const PriceChart = memo(function PriceChart({
     },
     scales: {
       x: {
+        offset: false,
         ticks: { color: tickColor, font: { size: 10, family: 'monospace' }, maxTicksLimit: 12, maxRotation: 0 },
-        grid: { color: gridColor },
+        grid: { color: gridColor, offset: false },
       },
       y: {
         position: 'left',
@@ -268,7 +279,7 @@ export const PriceChart = memo(function PriceChart({
 
         <Box sx={{ position: 'relative', height: 200, touchAction: 'pan-y' }}>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <Chart type="bar" data={data as any} options={options} plugins={[nowLinePlugin]} />
+          <Chart type="line" data={data as any} options={options} plugins={[bgShadePlugin, nowLinePlugin]} />
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>

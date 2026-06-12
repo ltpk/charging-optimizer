@@ -49,7 +49,7 @@ src/
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
     Metrics.tsx            — metric grid. "Charge plan" box (needed h as value; sub-lines = "N h rounded · X kWh", then "done by HH:MM[ d.m.]" when charging is scheduled, then "solar covers X% · saves Y €" when solar enabled — both scoped to the recommended charging hours), "Est. cost" box (€ + avg c/kWh sub-label), and a "Solar now" box (current hour's average output W, no sub-label) shown only when solar enabled. `Metric.sub` accepts string | string[] (one caption line each). Column count = 2 + (solarEnabled ? 1 : 0)
     HourList.tsx           — selected hours with MUI LinearProgress bars on an absolute scale: length + color (success/warning/error tiers at 0.34/0.67) are normalized against the candidate-hour net-cost range (`netCostMin`/`netCostMax`), so full+green = cheapest available, empty+red = priciest. Marks the current hour (`currentTs`) with a "now" label + highlighted row, and shows each hour's Δ vs the cheapest selected hour
-    PriceChart.tsx         — Chart.js mixed bar+line; nowLinePlugin + colorsRef via useRef to avoid stale closures
+    PriceChart.tsx         — Chart.js line chart on an hour-start-aligned category axis; bgShadePlugin (night/selected shading rects) + nowLinePlugin + colorsRef via useRef to avoid stale closures
 ```
 
 ## Data flow
@@ -100,9 +100,11 @@ calcNetCost(params, spotCent, hour, solarW):
 
 **Number inputs** (`NumField` in Sidebar): uncontrolled with `defaultValue={value}` and `key={value}`. Re-mounts when value changes externally (e.g. on first load from localStorage). Commits on `onBlur`.
 
-**nowLinePlugin**: defined with `useMemo(() => ..., [])` (stable reference); reads `nowIdx` and chart colors from `useRef`s updated each render — avoids stale closures without recreating the plugin object. Same pattern used for `colorsRef` so the plugin picks up theme changes.
+**nowLinePlugin / bgShadePlugin**: defined with `useMemo(() => ..., [])` (stable reference); read `nowPosRef`/`shadeRef` and chart colors from `useRef`s updated each render — avoids stale closures without recreating the plugin objects. Same pattern used for `colorsRef` so the plugins pick up theme changes.
 
-**Chart**: `<Chart type="bar" data={...} options={...} plugins={[nowLinePlugin]} />` from react-chartjs-2. Mixed datasets use `type: 'line' as const` overrides. `animation: false` for performance. Cast `data as any` to avoid complex mixed-chart generics. Colors derived from `useTheme()` + MUI `alpha()` so they adapt to light/dark mode. The solar dataset and right-hand `y2` axis are included only when `params.solarEnabled`.
+**Chart**: `<Chart type="line" data={...} options={options} plugins={[bgShadePlugin, nowLinePlugin]} />` from react-chartjs-2. `animation: false` for performance. Cast `data as any` to avoid mixed-dataset generics. Colors derived from `useTheme()` + MUI `alpha()` so they adapt to light/dark mode. The solar dataset and right-hand `y2` axis are included only when `params.solarEnabled`.
+
+**Hour-start axis alignment**: each x tick marks the _start_ of its hour (`offset: false` on the x scale + one extra end-of-window label so the last hour has width). Hour `i`'s night-rate/selected-window shading is drawn by `bgShadePlugin` as a rect from tick `i` to tick `i+1` (no bar datasets — bars would center on the tick and bleed half an hour early). The transfer-fee line uses `stepped: 'after'` with the last value duplicated onto the phantom end tick, so the night rate steps exactly at 22:00/07:00. The now-line is drawn at `nowIdx + elapsed fraction of the current hour`. The phantom end tick has only the duplicated transfer point; the tooltip filters it out (`dataIndex < hours.length`).
 
 **Params update**: `onParamChange<K extends keyof Params>(key: K, value: Params[K])` — generic key narrows the value type. Propagated from App → Sidebar via props.
 

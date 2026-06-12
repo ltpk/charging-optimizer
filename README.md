@@ -13,7 +13,7 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 - Configurable battery capacity, charging loss, charging power, grid transfer fees, and buy/sell margins (Finnish VAT 25.5% applied correctly)
 - Metrics panel shows a "Charge plan" box (hours needed, with rounded duration, kWh to be drawn from the grid, the estimated completion time "done by", and — when solar is enabled — the % of the charge covered by solar and estimated € saved vs. grid-only, both scoped to the recommended charging hours) and estimated total cost with average c/kWh for the optimal period; when solar is enabled a separate "Solar now" box shows the forecast solar output for the current hour
 - Cheapest-hours list bars use an absolute scale — length and color (green → amber → red) are normalized against all upcoming hours, so a full green bar means genuinely cheap, not just cheapest among the picked hours; the current hour is marked "now" and each row shows its price delta vs. the cheapest selected hour
-- Price chart shows net cost, spot price, day/night transfer fee, solar output, and the selected charging window
+- Price chart shows net cost, spot price, day/night transfer fee, solar output, and the selected charging window; each x-axis tick marks the start of its hour, so the shaded windows and the night-rate step align with actual clock times, and the "now" line sits at the elapsed fraction of the current hour
 - Optional browser notification when the charging window starts (in-tab; enable in the sidebar)
 - Light/dark/system theme toggle; follows `prefers-color-scheme` by default
 - Mobile-responsive layout with collapsible settings sidebar
