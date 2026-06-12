@@ -42,6 +42,8 @@ interface Props {
   completionTime: Date | null
   nHours: number
   totalCost: number
+  spotNow: number
+  transferNow: number
   solarNow: number
   solarPct: number
   solarSavings: number
@@ -55,13 +57,14 @@ export function Metrics({
   completionTime,
   nHours,
   totalCost,
+  spotNow,
+  transferNow,
   solarNow,
   solarPct,
   solarSavings,
   avgNetCost,
   solarEnabled,
 }: Props) {
-  const cols = 2 + (solarEnabled ? 1 : 0)
   const sameDay = completionTime && completionTime.toDateString() === new Date().toDateString()
   const doneBy = completionTime
     ? `done by ${completionTime.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}` +
@@ -70,11 +73,13 @@ export function Metrics({
   const neededSub = [`${nHours} h rounded · ${kWhNeeded.toFixed(1)} kWh`]
   if (doneBy) neededSub.push(doneBy)
   if (solarEnabled) neededSub.push(`solar covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} €`)
+  const nowSub = [`transfer ${transferNow.toFixed(2)} c/kWh`]
+  if (solarEnabled) nowSub.push(`solar ${Math.round(solarNow)} W`)
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: `repeat(${cols}, 1fr)` }, gap: 1.5 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 1.5 }}>
       <Metric label="Charge plan" value={hoursNeeded.toFixed(1)} unit="h" sub={neededSub} />
       <Metric label="Est. cost" value={totalCost.toFixed(2)} unit="€" sub={`avg ${avgNetCost.toFixed(1)} c/kWh`} />
-      {solarEnabled && <Metric label="Solar now" value={Math.round(solarNow)} unit="W" />}
+      <Metric label="Spot now" value={spotNow.toFixed(2)} unit="c/kWh" sub={nowSub} />
     </Box>
   )
 }
