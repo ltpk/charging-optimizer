@@ -107,10 +107,13 @@ export const PriceChart = memo(function PriceChart({
             ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top)
           }
           if (sel[i]) {
-            // Inset each hour so the window reads as per-hour bars, not one solid band
+            // Gaps only between adjacent selected hours, so the window reads as per-hour
+            // bars while its outer edges stay flush with the hour ticks
             const inset = Math.min(2, (right - left) * 0.1)
+            const l = left + (sel[i - 1] ? inset : 0)
+            const r = right - (sel[i + 1] ? inset : 0)
             ctx.fillStyle = alpha(S, 0.25)
-            ctx.fillRect(left + inset, chartArea.top, right - left - 2 * inset, chartArea.bottom - chartArea.top)
+            ctx.fillRect(l, chartArea.top, r - l, chartArea.bottom - chartArea.top)
           }
         }
         ctx.restore()
