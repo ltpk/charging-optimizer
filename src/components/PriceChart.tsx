@@ -13,25 +13,25 @@ import {
 } from 'chart.js'
 import { Chart } from 'react-chartjs-2'
 import type { Plugin, ScriptableLineSegmentContext, ChartOptions } from 'chart.js'
-import { isNightHour } from '../utils/optimization'
-import type { HourEntry, Params } from '../types'
+import { isNightHour, SLOT_MS } from '../utils/optimization'
+import type { SlotEntry, Params } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, LineController, PointElement, Tooltip, Filler)
 
 interface Props {
-  hours: HourEntry[]
+  slots: SlotEntry[]
   selectedTs: Set<string>
   nowIdx: number
-  hourSources: boolean[]
+  slotSources: boolean[]
   horizonH: number
   params: Params
 }
 
 export const PriceChart = memo(function PriceChart({
-  hours,
+  slots,
   selectedTs,
   nowIdx,
-  hourSources,
+  slotSources,
   horizonH,
   params,
 }: Props) {
@@ -47,9 +47,9 @@ export const PriceChart = memo(function PriceChart({
   // Ref pattern: plugin is memoized once, reads latest values via ref
   const colorsRef = useRef({ W, P, S, gridColor, tickColor, nightBg, isDark })
   colorsRef.current = { W, P, S, gridColor, tickColor, nightBg, isDark }
-  // Ticks mark hour starts; the now-line sits at the elapsed fraction of the current hour
+  // Ticks mark slot starts; the now-line sits at the elapsed fraction of the current slot
   const nowPos =
-    nowIdx >= 0 ? nowIdx + Math.min(Math.max((Date.now() - hours[nowIdx].dt.getTime()) / 3600000, 0), 1) : -1
+    nowIdx >= 0 ? nowIdx + Math.min(Math.max((Date.now() - slots[nowIdx].dt.getTime()) / SLOT_MS, 0), 1) : -1
   const nowPosRef = useRef(-1)
   nowPosRef.current = nowPos
 
@@ -80,41 +80,61 @@ export const PriceChart = memo(function PriceChart({
     [],
   )
 
-  // Hour i shades the span from tick i to tick i+1; drawn as rects so it aligns
-  // with hour starts instead of bar cells centered on the ticks
-  const shadeRef = useRef<{ sel: boolean[]; night: boolean[] }>({ sel: [], night: [] })
+  // Slot i shades the span from tick i to tick i+1; drawn as rects so it aligns
+  // with slot starts instead of bar cells centered on the ticks
+  const shadeRef = useRef<{ sel: boolean[]; night: boolean[]; hourStart: boolean[] }>({
+    sel: [],
+    night: [],
+    hourStart: [],
+  })
   shadeRef.current = {
-    sel: hours.map(h => selectedTs.has(h.ts)),
-    night: hours.map(h => isNightHour(h.hour)),
+    sel: slots.map(h => selectedTs.has(h.ts)),
+    night: slots.map(h => isNightHour(h.hour)),
+    hourStart: slots.map(h => h.dt.getMinutes() === 0),
   }
 
   const bgShadePlugin = useMemo<Plugin<'line'>>(
     () => ({
       id: 'bgShade',
       beforeDatasetsDraw(chart) {
-        const { sel, night } = shadeRef.current
+        const { sel, night, hourStart } = shadeRef.current
         const { S, nightBg } = colorsRef.current
         const { ctx, chartArea, scales } = chart
         const x = scales['x']
+        const clampL = (px: number) => Math.max(px, chartArea.left)
+        const clampR = (px: number) => Math.min(px, chartArea.right)
         ctx.save()
+
+        // night shading: merge contiguous slots into single rects (avoids hairline seams)
+        let runStart = -1
+        for (let i = 0; i <= night.length; i++) {
+          if (i < night.length && night[i]) {
+            if (runStart < 0) runStart = i
+            continue
+          }
+          if (runStart >= 0) {
+            const left = clampL(x.getPixelForValue(runStart))
+            const right = clampR(x.getPixelForValue(i))
+            if (right > left) {
+              ctx.fillStyle = nightBg
+              ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top)
+            }
+            runStart = -1
+          }
+        }
+
+        // selected window: gaps only at hour boundaries inside a contiguous run, so the
+        // window reads as per-hour bars while its outer edges stay flush with the slot ticks
         for (let i = 0; i < sel.length; i++) {
-          if (!sel[i] && !night[i]) continue
-          const left = Math.max(x.getPixelForValue(i), chartArea.left)
-          const right = Math.min(x.getPixelForValue(i + 1), chartArea.right)
+          if (!sel[i]) continue
+          const left = clampL(x.getPixelForValue(i))
+          const right = clampR(x.getPixelForValue(i + 1))
           if (right <= left) continue
-          if (night[i]) {
-            ctx.fillStyle = nightBg
-            ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top)
-          }
-          if (sel[i]) {
-            // Gaps only between adjacent selected hours, so the window reads as per-hour
-            // bars while its outer edges stay flush with the hour ticks
-            const inset = Math.min(2, (right - left) * 0.1)
-            const l = left + (sel[i - 1] ? inset : 0)
-            const r = right - (sel[i + 1] ? inset : 0)
-            ctx.fillStyle = alpha(S, 0.25)
-            ctx.fillRect(l, chartArea.top, r - l, chartArea.bottom - chartArea.top)
-          }
+          const inset = Math.min(2, (right - left) * 0.4)
+          const l = left + (sel[i - 1] && hourStart[i] ? inset : 0)
+          const r = right - (sel[i + 1] && hourStart[i + 1] ? inset : 0)
+          ctx.fillStyle = alpha(S, 0.25)
+          ctx.fillRect(l, chartArea.top, r - l, chartArea.bottom - chartArea.top)
         }
         ctx.restore()
       },
@@ -132,16 +152,21 @@ export const PriceChart = memo(function PriceChart({
       return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric' }) + ' ' + t
     return t
   }
-  // One extra end-of-window label so the last hour's span has width on the axis
-  const labels = hours.map((h, i) => fmtLabel(h.dt, i === 0))
-  if (hours.length > 0) labels.push(fmtLabel(new Date(hours[hours.length - 1].dt.getTime() + 3600000), false))
+  // One extra end-of-window label so the last slot's span has width on the axis
+  const dts = slots.map(h => h.dt)
+  if (slots.length > 0) dts.push(new Date(slots[slots.length - 1].dt.getTime() + SLOT_MS))
+  const labels = dts.map((dt, i) => fmtLabel(dt, i === 0))
 
-  const netCostData = hours.map(h => +h.netCost.toFixed(3))
-  const spotData = hours.map(h => +h.spotCent.toFixed(3))
-  const transferData = hours.map(h => (isNightHour(h.hour) ? params.transferNight : params.transferDay))
-  // Hold the last hour's fee through to the end-of-window tick
+  // axis labels/gridlines only at hour starts, thinned to ≤ ~12 clock-aligned labels
+  const labelStepH = Math.max(1, Math.ceil(dts.length / 4 / 12))
+  const tickShow = dts.map(dt => dt.getMinutes() === 0 && dt.getHours() % labelStepH === 0)
+
+  const netCostData = slots.map(h => +h.netCost.toFixed(3))
+  const spotData = slots.map(h => +h.spotCent.toFixed(3))
+  const transferData = slots.map(h => (isNightHour(h.hour) ? params.transferNight : params.transferDay))
+  // Hold the last slot's fee through to the end-of-window tick
   if (transferData.length > 0) transferData.push(transferData[transferData.length - 1])
-  const solarKw = hours.map(h => +(h.solarW / 1000).toFixed(3))
+  const solarKw = slots.map(h => +(h.solarW / 1000).toFixed(3))
   const maxY = Math.max(...netCostData, ...spotData, ...transferData, 1) * 1.2
   const minY = Math.min(0, ...netCostData, ...spotData) * 1.1
   const maxY2 = Math.max(...solarKw, 1) * 1.5
@@ -149,7 +174,7 @@ export const PriceChart = memo(function PriceChart({
   const segBorder = (ctx: ScriptableLineSegmentContext, actual: string, predicted: string, past: string) => {
     const i = ctx.p0DataIndex
     if (nowIdx >= 0 && i < nowIdx) return past
-    return hourSources[i] ? actual : predicted
+    return slotSources[i] ? actual : predicted
   }
 
   const data = {
@@ -187,7 +212,7 @@ export const PriceChart = memo(function PriceChart({
         segment: {
           borderColor: (ctx: ScriptableLineSegmentContext) =>
             segBorder(ctx, alpha(P, 0.73), alpha(P, 0.4), alpha(P, 0.2)),
-          borderDash: (ctx: ScriptableLineSegmentContext) => (hourSources[ctx.p0DataIndex] ? [] : [2, 3]),
+          borderDash: (ctx: ScriptableLineSegmentContext) => (slotSources[ctx.p0DataIndex] ? [] : [2, 3]),
         },
       },
       {
@@ -233,13 +258,13 @@ export const PriceChart = memo(function PriceChart({
       tooltip: {
         mode: 'index',
         intersect: false,
-        filter: item => item.dataIndex < hours.length,
+        filter: item => item.dataIndex < slots.length,
         callbacks: {
           title: ctx => ctx[0]?.label ?? '',
           label: ctx => {
             const l = ctx.dataset.label ?? ''
             const v = ctx.parsed.y ?? 0
-            const src = hourSources[ctx.dataIndex] ? 'actual' : 'forecast'
+            const src = slotSources[ctx.dataIndex] ? 'actual' : 'forecast'
             if (l === 'Net cost') return ` Net cost: ${v.toFixed(2)} c/kWh`
             if (l === 'Spot price') return ` Spot (${src}): ${v.toFixed(2)} c/kWh`
             if (l === 'Transfer fee') return ` Transfer: ${v.toFixed(2)} c/kWh`
@@ -252,7 +277,14 @@ export const PriceChart = memo(function PriceChart({
     scales: {
       x: {
         offset: false,
-        ticks: { color: tickColor, font: { size: 10, family: 'monospace' }, maxTicksLimit: 12, maxRotation: 0 },
+        ticks: {
+          color: tickColor,
+          font: { size: 10, family: 'monospace' },
+          maxRotation: 0,
+          autoSkip: false,
+          // returning null hides the tick and its gridline — only hour-start ticks show
+          callback: (_v, i) => (tickShow[i] ? labels[i] : null),
+        },
         grid: { color: gridColor, offset: false },
       },
       y: {

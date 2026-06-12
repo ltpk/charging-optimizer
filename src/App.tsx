@@ -26,7 +26,7 @@ import { HourList } from './components/HourList'
 import { PriceChart } from './components/PriceChart'
 import { fetchPrices } from './utils/api'
 import { fetchSolarData, loadCachedSolar, solarCacheKey } from './utils/solar'
-import { optimize, DEFAULT_PARAMS } from './utils/optimization'
+import { optimize, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
 import { lsGet, lsSet, LS_PARAMS, LS_GEO, LS_COLOR_MODE, LS_NOTIFY } from './utils/storage'
 import type { Params, PriceEntry, SolarData, GeoCoords, ApiStatus, OptimizeResult } from './types'
 
@@ -60,7 +60,7 @@ export default function App() {
   }, [])
 
   const [params, setParams] = useState<Params>(storedParams)
-  // ticks at hour granularity so the optimizer's "now" advances even without a data refresh
+  // ticks at 15-min slot granularity so the optimizer's "now" advances even without a data refresh
   const [now, setNow] = useState(() => new Date())
   const [notifyEnabled, setNotifyEnabled] = useState<boolean>(() => lsGet<boolean>(LS_NOTIFY) ?? false)
   const [priceData, setPriceData] = useState<PriceEntry[]>([])
@@ -82,13 +82,13 @@ export default function App() {
     lsSet(LS_PARAMS, params)
   }, [params])
 
-  // advance `now` only when the clock hour changes (optimize output is hour-granular);
-  // also re-check when the tab returns to the foreground after being throttled/asleep
+  // advance `now` only when the clock crosses a 15-min slot boundary (optimize output is
+  // slot-granular); also re-check when the tab returns to the foreground after being throttled
   useEffect(() => {
     const tick = () =>
       setNow(prev => {
         const next = new Date()
-        return Math.floor(next.getTime() / 3_600_000) !== Math.floor(prev.getTime() / 3_600_000) ? next : prev
+        return Math.floor(next.getTime() / SLOT_MS) !== Math.floor(prev.getTime() / SLOT_MS) ? next : prev
       })
     const id = setInterval(tick, 60_000)
     const onVisible = () => {
@@ -193,7 +193,7 @@ export default function App() {
     [priceData, solarData, params, now],
   )
 
-  const isGo = !!result && result.selectedTs.has(result.currentHour.ts)
+  const isGo = !!result && result.selectedTs.has(result.currentSlot.ts)
 
   const handleToggleNotify = useCallback(async (enabled: boolean) => {
     if (enabled && 'Notification' in window && Notification.permission === 'default') {
@@ -390,13 +390,13 @@ export default function App() {
                     selectedList={result.selectedList}
                     netCostMin={result.netCostMin}
                     netCostMax={result.netCostMax}
-                    currentTs={result.currentHour.ts}
+                    currentTs={result.currentSlot.ts}
                   />
                   <PriceChart
-                    hours={result.hours}
+                    slots={result.slots}
                     selectedTs={result.selectedTs}
                     nowIdx={result.nowIdx}
-                    hourSources={result.hourSources}
+                    slotSources={result.slotSources}
                     horizonH={params.horizonH}
                     params={params}
                   />

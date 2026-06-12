@@ -35,28 +35,28 @@ No environment variables needed. Tests cover the pure optimization core only (`b
 
 ```
 src/
-  types.ts                 — shared interfaces: PriceEntry, HourEntry, Params, OptimizeResult, SolarData, GeoCoords, ApiStatus
+  types.ts                 — shared interfaces: PriceEntry (one 15-min slot; `ts` = UTC quarter key YYYY-MM-DDTHH:MM), SlotEntry, Params, OptimizeResult, SolarData, GeoCoords, ApiStatus
   main.tsx                 — React entry, ErrorBoundary (ThemeProvider lives in App.tsx)
   App.tsx                  — colorMode state + ThemeProvider, all data fetching, layout; result computed via useMemo(optimize(...))
   utils/
     storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants; localDateStr() (local YYYY-MM-DD for daily cache keys)
-    api.ts                 — fetchPrices(): merges spot-hinta.fi actual + nordpool-predict-fi forecast
+    api.ts                 — fetchPrices(): merges spot-hinta.fi actual (native 15-min slots) + nordpool-predict-fi forecast (hourly, expanded into four flat quarters)
     solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match). UI azimuth is compass convention (0=N 180=S); fetchSolarData converts to Forecast.Solar's 0=S convention (`solarAz - 180`) when building the URL, and integrates the API's instantaneous watts points (piecewise-linear) into per-hour averages
-    optimization.ts        — calcNetCost(), isNightHour(), optimize(prices, solar, params, now=new Date()) — pure functions, no React imports
+    optimization.ts        — calcNetCost(), isNightHour(), optimize(prices, solar, params, now=new Date()), SLOT_MS/SLOT_H/slotTs() — pure functions over 15-min slots, no React imports
     optimization.test.ts   — bun:test unit tests for the optimization core
   components/
     Sidebar.tsx            — all controls; NumField uses defaultValue+key pattern (uncontrolled)
     StatusCard.tsx         — Go / Wait / Battery full banner (MUI Alert)
     Metrics.tsx            — metric grid. "Charge plan" box (needed h as value; sub-lines = "N h rounded · X kWh", then "done by HH:MM[ d.m.]" when charging is scheduled, then "solar covers X% · saves Y €" when solar enabled — both scoped to the recommended charging hours), "Est. cost" box (€ + avg c/kWh sub-label), and a "Solar now" box (current hour's average output W, no sub-label) shown only when solar enabled. `Metric.sub` accepts string | string[] (one caption line each). Column count = 2 + (solarEnabled ? 1 : 0)
-    HourList.tsx           — selected hours with MUI LinearProgress bars on an absolute scale: length + color (success/warning/error tiers at 0.34/0.67) are normalized against the candidate-hour net-cost range (`netCostMin`/`netCostMax`), so full+green = cheapest available, empty+red = priciest. Marks the current hour (`currentTs`) with a "now" label + highlighted row, and shows each hour's Δ vs the cheapest selected hour
-    PriceChart.tsx         — Chart.js line chart on an hour-start-aligned category axis; bgShadePlugin (night/selected shading rects) + nowLinePlugin + colorsRef via useRef to avoid stale closures
+    HourList.tsx           — groups contiguous selected slots per clock hour (`groupSlots`): a fully selected hour is one row, window edges show as partial rows with a "N min" caption; row cost = average of its slots. MUI LinearProgress bars on an absolute scale: length + color (success/warning/error tiers at 0.34/0.67) are normalized against the candidate-slot net-cost range (`netCostMin`/`netCostMax`), so full+green = cheapest available, empty+red = priciest. Marks the row containing the current slot (`currentTs`) with a "now" caption + highlighted row, and shows each row's Δ vs the cheapest selected row
+    PriceChart.tsx         — Chart.js line chart over 15-min slots on a slot-start-aligned category axis (hourly labels/gridlines via tick callback); bgShadePlugin (night/selected shading rects) + nowLinePlugin + colorsRef via useRef to avoid stale closures
 ```
 
 ## Data flow
 
-1. `fetchPrices()` in `api.ts` fetches today + tomorrow from `spot-hinta.fi`, fills uncovered hours from `nordpool-predict-fi` (1 h TTL). Actual prices override predictions for the same hour (keyed by `YYYY-MM-DDTHH` UTC).
+1. `fetchPrices()` in `api.ts` fetches today + tomorrow from `spot-hinta.fi` at native 15-min resolution, fills uncovered hours from `nordpool-predict-fi` (1 h TTL; each hourly point expanded into four flat quarter slots). Actual prices override predictions for the same slot (keyed by `YYYY-MM-DDTHH:MM` UTC, `slotTs()`).
 2. Optionally `fetchSolarData()` fetches from `api.forecast.solar`. Timestamps are local browser time; converted to UTC keys on receipt.
-3. `App.tsx` passes `priceData`, `solarData`, `params`, and a clock-aligned `now` to `useMemo(() => optimize(...))`. `now` advances at hour granularity (a 60 s interval + `visibilitychange` listener that only bumps state when the clock hour changes) so the now-line, current-hour, and Go/Wait status stay correct without a data refresh. `optimize()` returns `OptimizeResult | null`.
+3. `App.tsx` passes `priceData`, `solarData`, `params`, and a clock-aligned `now` to `useMemo(() => optimize(...))`. `now` advances at 15-min slot granularity (a 60 s interval + `visibilitychange` listener that only bumps state when the clock crosses a `SLOT_MS` boundary) so the now-line, current-slot, and Go/Wait status stay correct without a data refresh. `optimize()` returns `OptimizeResult | null`.
 4. `App.tsx` re-runs `fetchPrices()` hourly on success, or after **5 min** when a fetch fails (or on demand via the sidebar refresh button). A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error (with a Retry button) only appears if the _initial_ load fails. Manual refresh uses a `refreshRef` that exposes the inner `load()` closure so it shares the same `hasData` state.
 5. Solar cache validity is keyed on `solarCacheKey(coords, params)` (lat/lon + tilt/azimuth/kWp) in addition to the calendar date. Changing location or panel params mid-session flips the sidebar solar status to a "refetch forecast" warning (`fetchedSolarKeyRef` in App tracks the key of the last fetch).
 
@@ -73,23 +73,24 @@ calcNetCost(params, spotCent, hour, solarW):
 ```
 
 - `ALV = 1.255` — Finnish VAT 25.5%
-- Transfer fee: `transferNight` for hours 22–07 (`isNightHour()`, shared with PriceChart), `transferDay` otherwise
+- All slots are 15 minutes (`SLOT_MS = 900_000`, `SLOT_H = 0.25`); capacities/needs are expressed in **hours**
+- Transfer fee: `transferNight` for hours 22–07 (`isNightHour()` on the slot's start hour, shared with PriceChart), `transferDay` otherwise
 - Graph window: last 6 h of past + `horizonH` hours ahead
-- **Slot capacity** (`hourCapacity`): future hours count as 1; the in-progress hour counts only for its remaining fraction, and is dropped from candidates below `MIN_HOUR_CAPACITY = 0.25` (< 15 min left)
-- Candidate set (`futureHours`): hours with usable capacity, bounded by `horizonH` and optional charge-by deadline (`chargeByDay` offset 0/1/2 + `chargeByHour`); a deadline already in the past sets `deadlinePassed` and yields an empty candidate set
-- **Consecutive mode** (default): exact-cost scan — for each start index, walk forward consuming `hoursNeeded` at per-slot capacity; pick max achieved hours, then min cost, then earliest (O(n²), n ≤ 72)
-- **Individual mode**: sort by netCost, take cheapest slots until their combined capacity covers `hoursNeeded`, re-sort chronologically
-- **Usage walk**: cost/completion derived by consuming `hoursNeeded` chronologically over `selectedList` (current hour starts at `now`, last slot partial). Yields `achievableHours`, energy-weighted `totalCost`/`avgNetCost`, the grid-only baseline for `solarSavings`, usage-weighted `solarPct`, and `completionTime` (`null` when nothing scheduled; end of last slot when the need doesn't fit)
-- **Solar toggle**: `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0; `solarPct`/`solarSavings` are then 0
-- **HourList scale**: `netCostMin`/`netCostMax` are the min/max net cost over `futureHours` (the candidate set). `HourList` normalizes each bar against this range so bar length + color tier reflect absolute cheapness vs. all upcoming hours, not just rank within the picked subset.
+- **Slot capacity** (`slotCapacity`, in hours): future slots count as `SLOT_H`; the in-progress slot counts only for its remaining fraction, and is dropped from candidates below `MIN_SLOT_CAPACITY = 0.25 * SLOT_H` (< ~3.75 min left)
+- Candidate set (`candidates`): slots with usable capacity, bounded by `horizonH` and optional charge-by deadline (`chargeByDay` offset 0/1/2 + `chargeByHour`); a deadline already in the past sets `deadlinePassed` and yields an empty candidate set
+- **Consecutive mode** (default): exact-cost scan — for each start index, walk forward consuming `hoursNeeded` at per-slot capacity; pick max achieved hours, then min cost, then earliest (O(n²), n ≤ ~300)
+- **Individual mode**: sort by netCost, take cheapest slots until their combined capacity covers `hoursNeeded`, re-sort chronologically — this is what catches sub-hour price dips
+- **Usage walk**: cost/completion derived by consuming `hoursNeeded` chronologically over `selectedList` (current slot starts at `now`, last slot partial). Yields `achievableHours`, energy-weighted `totalCost`/`avgNetCost`, the grid-only baseline for `solarSavings`, usage-weighted `solarPct`, and `completionTime` (`null` when nothing scheduled; end of last slot when the need doesn't fit)
+- **Solar**: solar data stays hourly — each slot reads its hour's average via `getSolarForDt` (hour-key truncation of the slot's `dt`). `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0; `solarPct`/`solarSavings` are then 0
+- **HourList scale**: `netCostMin`/`netCostMax` are the min/max net cost over `candidates`. `HourList` normalizes each row's bar against this range so bar length + color tier reflect absolute cheapness vs. all upcoming slots, not just rank within the picked subset.
 - **Short window**: when `achievableHours < hoursNeeded` (tight deadline/horizon), `App` renders a warning with the achievable vs. needed hours; a passed deadline gets its own warning instead
 
 ## State / caching (localStorage)
 
 | Key                 | Contents                                                                                   | Invalidation                                                                               |
 | ------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `ev_spot_actual_v4` | spot-hinta.fi prices + `fetchedAt` timestamp                                               | Stale once the last hour has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
-| `ev_spot_v4`        | nordpool-predict-fi forecast                                                               | 1 h TTL (keyed on local date)                                                              |
+| `ev_spot_actual_v5` | spot-hinta.fi 15-min slot prices + `fetchedAt` timestamp                                   | Stale once the last slot has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
+| `ev_spot_v5`        | nordpool-predict-fi forecast (expanded to 15-min slots)                                    | 1 h TTL (keyed on local date)                                                              |
 | `ev_solar_v6`       | Forecast.Solar per-hour average watts map + `key` (location/panel params)                  | Daily (local calendar date) or key mismatch                                                |
 | `ev_geo`            | `{ lat, lon }` strings                                                                     | Never (manual update)                                                                      |
 | `ev_params_v6`      | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change)                                                          |
@@ -104,7 +105,7 @@ calcNetCost(params, spotCent, hour, solarW):
 
 **Chart**: `<Chart type="line" data={...} options={options} plugins={[bgShadePlugin, nowLinePlugin]} />` from react-chartjs-2. `animation: false` for performance. Cast `data as any` to avoid mixed-dataset generics. Colors derived from `useTheme()` + MUI `alpha()` so they adapt to light/dark mode. The solar dataset and right-hand `y2` axis are included only when `params.solarEnabled`.
 
-**Hour-start axis alignment**: each x tick marks the _start_ of its hour (`offset: false` on the x scale + one extra end-of-window label so the last hour has width). Hour `i`'s night-rate/selected-window shading is drawn by `bgShadePlugin` as a rect from tick `i` to tick `i+1` (no bar datasets — bars would center on the tick and bleed half an hour early); selected-window rects are inset ≤ 2 px, but only on sides adjoining another selected hour, so each hour reads as a discrete bar while the window's outer edges stay flush with the hour ticks. The transfer-fee line uses `stepped: 'before'` — in Chart.js, `'before'` holds the _previous_ point's value until the next tick (`'after'` is the opposite, despite the names), so each hour's fee spans its hour and the night rate steps exactly at 22:00/07:00; the last value is duplicated onto the phantom end tick so the line covers the final hour. The now-line is drawn at `nowIdx + elapsed fraction of the current hour`. The phantom end tick has only the duplicated transfer point; the tooltip filters it out (`dataIndex < hours.length`).
+**Slot-start axis alignment**: each x category marks the _start_ of its 15-min slot (`offset: false` on the x scale + one extra end-of-window label so the last slot has width); the tick callback returns `null` for everything except hour starts thinned to ≤ ~12 clock-aligned labels (`tickShow`), which hides both the label and its gridline. Slot `i`'s night-rate/selected-window shading is drawn by `bgShadePlugin` as a rect from tick `i` to tick `i+1` (no bar datasets — bars would center on the tick and bleed half a slot early); contiguous night slots are merged into single rects, and selected-window rects are inset ≤ 2 px only at hour boundaries inside a contiguous run, so the window reads as per-hour bars while its outer edges stay flush with the exact start/end times. The transfer-fee line uses `stepped: 'before'` — in Chart.js, `'before'` holds the _previous_ point's value until the next tick (`'after'` is the opposite, despite the names), so the night rate steps exactly at 22:00/07:00; the last value is duplicated onto the phantom end tick so the line covers the final slot. The now-line is drawn at `nowIdx + elapsed fraction of the current slot`. The phantom end tick has only the duplicated transfer point; the tooltip filters it out (`dataIndex < slots.length`).
 
 **Params update**: `onParamChange<K extends keyof Params>(key: K, value: Params[K])` — generic key narrows the value type. Propagated from App → Sidebar via props.
 

@@ -1,3 +1,4 @@
+// one 15-minute price slot; `ts` is the UTC quarter key (YYYY-MM-DDTHH:MM), `hour` the local start hour
 export interface PriceEntry {
   dt: Date
   spotCent: number
@@ -6,7 +7,7 @@ export interface PriceEntry {
   source: 'actual' | 'predicted'
 }
 
-export interface HourEntry extends PriceEntry {
+export interface SlotEntry extends PriceEntry {
   netCost: number
   solarW: number
 }
@@ -46,10 +47,10 @@ export interface Params {
 }
 
 export interface OptimizeResult {
-  hours: HourEntry[]
-  selectedList: HourEntry[]
+  slots: SlotEntry[]
+  selectedList: SlotEntry[]
   selectedTs: Set<string>
-  currentHour: HourEntry
+  currentSlot: SlotEntry
   hoursNeeded: number
   achievableHours: number
   kWhNeeded: number
@@ -58,7 +59,7 @@ export interface OptimizeResult {
   nHours: number
   totalCost: number
   nowIdx: number
-  hourSources: boolean[]
+  slotSources: boolean[]
   netCostMin: number
   netCostMax: number
   solarNow: number

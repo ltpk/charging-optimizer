@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ALV, DEFAULT_PARAMS, calcNetCost, isNightHour, optimize } from './optimization'
+import { ALV, DEFAULT_PARAMS, SLOT_MS, calcNetCost, isNightHour, optimize } from './optimization'
 import type { Params, PriceEntry, SolarData } from '../types'
 
 // 0→100% of 10 kWh, no loss, 5 kW → exactly 2.0 h needed; flat 1 c/kWh transfer, no margins
@@ -23,15 +23,26 @@ const baseParams: Params = {
 const NOON = new Date(2026, 5, 10, 12, 0) // local Wed 2026-06-10 12:00
 
 function entry(dt: Date, spotCent: number): PriceEntry {
-  return { dt, spotCent, hour: dt.getHours(), ts: dt.toISOString().slice(0, 13), source: 'actual' }
+  return { dt, spotCent, hour: dt.getHours(), ts: dt.toISOString().slice(0, 16), source: 'actual' }
 }
 
-// hourly entries starting at local `startHour` on 2026-06-10 (overflows roll into the next day)
+// four flat 15-min slots per hourly price, starting at local `startHour` on 2026-06-10
 function prices(startHour: number, spots: number[]): PriceEntry[] {
-  return spots.map((s, i) => entry(new Date(2026, 5, 10, startHour + i), s))
+  return spots.flatMap((s, i) => [0, 15, 30, 45].map(m => entry(new Date(2026, 5, 10, startHour + i, m), s)))
 }
 
-const selectedHours = (r: NonNullable<ReturnType<typeof optimize>>) => r.selectedList.map(h => h.dt.getHours())
+// 15-min slots with explicit per-quarter prices
+function quarterPrices(startHour: number, spots: number[]): PriceEntry[] {
+  const startMs = new Date(2026, 5, 10, startHour).getTime()
+  return spots.map((s, i) => entry(new Date(startMs + i * SLOT_MS), s))
+}
+
+type Result = NonNullable<ReturnType<typeof optimize>>
+// distinct clock hours covered by the selection
+const selectedHours = (r: Result) => [...new Set(r.selectedList.map(h => h.dt.getHours()))]
+// slot start times as "H:MM"
+const selectedStarts = (r: Result) =>
+  r.selectedList.map(h => `${h.dt.getHours()}:${String(h.dt.getMinutes()).padStart(2, '0')}`)
 
 describe('isNightHour', () => {
   test('night rate covers 22:00–07:00', () => {
@@ -84,6 +95,7 @@ describe('optimize', () => {
   test('consecutive mode picks the cheapest contiguous window', () => {
     const r = optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, baseParams, NOON)!
     expect(selectedHours(r)).toEqual([14, 15])
+    expect(r.selectedList).toHaveLength(8)
     expect(r.completionTime).toEqual(new Date(2026, 5, 10, 16, 0))
     expect(r.avgNetCost).toBeCloseTo(3, 10) // spot 2 + transfer 1
     expect(r.totalCost).toBeCloseTo((3 * 2 * 5) / 100, 10)
@@ -93,24 +105,33 @@ describe('optimize', () => {
   test('individual mode picks the cheapest non-contiguous hours', () => {
     const r = optimize(prices(12, [1, 10, 2, 10, 10]), {}, { ...baseParams, consecutive: false }, NOON)!
     expect(selectedHours(r)).toEqual([12, 14])
+    expect(r.selectedList).toHaveLength(8)
     expect(r.completionTime).toEqual(new Date(2026, 5, 10, 15, 0))
   })
 
-  test('partial current hour counts only its remaining fraction', () => {
-    const halfPast = new Date(2026, 5, 10, 12, 30)
-    const r = optimize(prices(12, [5, 5, 5, 5, 5]), {}, baseParams, halfPast)!
-    // window starting now: 0.5 + 1 + 0.5 h across three slots, done at 14:30
-    expect(selectedHours(r)).toEqual([12, 13, 14])
+  test('individual mode catches a sub-hour price dip', () => {
+    const p = { ...baseParams, batteryCapacity: 2.5, consecutive: false } // need 0.5 h
+    const r = optimize(quarterPrices(12, [10, 1, 1, 10, 10, 10, 10, 10]), {}, p, NOON)!
+    expect(selectedStarts(r)).toEqual(['12:15', '12:30'])
+    expect(r.completionTime).toEqual(new Date(2026, 5, 10, 12, 45))
+  })
+
+  test('partial current slot counts only its remaining fraction', () => {
+    const fivePast = new Date(2026, 5, 10, 12, 5)
+    const r = optimize(prices(12, [5, 5, 5]), {}, baseParams, fivePast)!
+    // window starting now: 10 min of the current slot + 7 full slots + 5 min of the 9th
+    expect(r.selectedList).toHaveLength(9)
     expect(r.achievableHours).toBeCloseTo(2, 10)
-    expect(r.completionTime).toEqual(new Date(2026, 5, 10, 14, 30))
+    expect(r.completionTime).toEqual(new Date(2026, 5, 10, 14, 5))
     expect(r.totalCost).toBeCloseTo((6 * 2 * 5) / 100, 10) // flat 6 c/kWh × 2 h × 5 kW
   })
 
-  test('current hour is dropped once under 15 minutes remain', () => {
-    const lateInHour = new Date(2026, 5, 10, 12, 50)
-    const r = optimize(prices(12, [1, 5, 5, 5]), {}, baseParams, lateInHour)!
-    expect(selectedHours(r)).toEqual([13, 14])
-    expect(r.completionTime).toEqual(new Date(2026, 5, 10, 15, 0))
+  test('current slot is dropped once under ~4 minutes remain', () => {
+    const lateInSlot = new Date(2026, 5, 10, 12, 12)
+    const p = { ...baseParams, batteryCapacity: 2.5 } // need 0.5 h
+    const r = optimize(quarterPrices(12, [1, 5, 5, 5, 5, 5, 5, 5]), {}, p, lateInSlot)!
+    expect(selectedStarts(r)).toEqual(['12:15', '12:30'])
+    expect(r.completionTime).toEqual(new Date(2026, 5, 10, 12, 45))
   })
 
   test('cheaper later window beats starting immediately', () => {
@@ -140,23 +161,25 @@ describe('optimize', () => {
   test('solar-covered hour wins and is reported in coverage/savings', () => {
     const p = { ...baseParams, batteryCapacity: 5, consecutive: false, solarEnabled: true } // need 1 h
     const data = prices(12, [5, 5, 5])
-    const solar: SolarData = { [data[1].ts]: p.chargingPower * 1000 } // 13:00 fully solar-covered
+    // solar data is keyed per hour — 13:00 fully solar-covered
+    const solar: SolarData = { [new Date(2026, 5, 10, 13).toISOString().slice(0, 13)]: p.chargingPower * 1000 }
     const r = optimize(data, solar, p, NOON)!
     expect(selectedHours(r)).toEqual([13])
+    expect(r.selectedList).toHaveLength(4)
     expect(r.solarPct).toBeCloseTo(100, 6)
     expect(r.solarSavings).toBeGreaterThan(0)
   })
 
   test('solar disabled zeroes solar influence', () => {
     const data = prices(12, [5, 5, 5])
-    const solar: SolarData = { [data[1].ts]: 99999 }
+    const solar: SolarData = { [new Date(2026, 5, 10, 13).toISOString().slice(0, 13)]: 99999 }
     const r = optimize(data, solar, { ...baseParams, solarEnabled: false }, NOON)!
     expect(r.solarNow).toBe(0)
     expect(r.solarPct).toBe(0)
-    expect(r.hours.every(h => h.solarW === 0)).toBe(true)
+    expect(r.slots.every(h => h.solarW === 0)).toBe(true)
   })
 
-  test('netCostMin/netCostMax span the candidate hours', () => {
+  test('netCostMin/netCostMax span the candidate slots', () => {
     const r = optimize(prices(12, [10, 2, 6]), {}, baseParams, NOON)!
     expect(r.netCostMin).toBeCloseTo(3, 10)
     expect(r.netCostMax).toBeCloseTo(11, 10)

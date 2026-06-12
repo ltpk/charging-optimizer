@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Alert, AlertTitle, Typography } from '@mui/material'
-import type { HourEntry } from '../types'
+import { SLOT_MS } from '../utils/optimization'
+import type { SlotEntry } from '../types'
 
 const fmtFi = (dt: Date) =>
   dt.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' }) +
@@ -9,11 +10,7 @@ const fmtFi = (dt: Date) =>
 
 const fmtTime = (dt: Date) => dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
 
-const addHour = (dt: Date) => {
-  const e = new Date(dt)
-  e.setHours(e.getHours() + 1)
-  return e
-}
+const slotEnd = (dt: Date) => new Date(dt.getTime() + SLOT_MS)
 
 function fmtRemaining(target: Date, now: Date): string {
   const diff = target.getTime() - now.getTime()
@@ -26,8 +23,8 @@ function fmtRemaining(target: Date, now: Date): string {
 interface Props {
   isGo: boolean
   isFull: boolean
-  firstSel?: HourEntry
-  lastSel?: HourEntry
+  firstSel?: SlotEntry
+  lastSel?: SlotEntry
 }
 
 export function StatusCard({ isGo, isFull, firstSel, lastSel }: Props) {
@@ -44,7 +41,7 @@ export function StatusCard({ isGo, isFull, firstSel, lastSel }: Props) {
   let rem = ''
   if (!isFull && firstSel) {
     if (isGo && lastSel) {
-      const end = addHour(lastSel.dt)
+      const end = slotEnd(lastSel.dt)
       sub = `Charging — window ${fmtFi(firstSel.dt)}–${fmtTime(end)}`
       rem = fmtRemaining(end, now)
     } else {

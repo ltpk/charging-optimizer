@@ -1,4 +1,5 @@
 import { lsGet, lsSet, LS_SPOT, LS_SPOT_ACTUAL, localDateStr } from './storage'
+import { SLOT_MS, slotTs } from './optimization'
 import type { PriceEntry } from '../types'
 
 const SPOT_TODAY_URL = 'https://api.spot-hinta.fi/today'
@@ -14,11 +15,15 @@ interface SpotHintaRow {
   PriceWithTax: number
 }
 
+// the prediction is hourly — expand each point into four flat 15-min slots
 function parsePredict(raw: [number, number][]): PriceEntry[] {
   return raw
-    .map(([ms, spotCent]) => {
-      const dt = new Date(Math.floor(ms / 3_600_000) * 3_600_000)
-      return { dt, spotCent, hour: dt.getHours(), ts: dt.toISOString().slice(0, 13), source: 'predicted' as const }
+    .flatMap(([ms, spotCent]) => {
+      const hourMs = Math.floor(ms / 3_600_000) * 3_600_000
+      return [0, 1, 2, 3].map(q => {
+        const dt = new Date(hourMs + q * SLOT_MS)
+        return { dt, spotCent, hour: dt.getHours(), ts: slotTs(dt), source: 'predicted' as const }
+      })
     })
     .sort((a, b) => a.dt.getTime() - b.dt.getTime())
 }
@@ -32,7 +37,7 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
     tomorrow.setHours(0, 0, 0, 0)
     const cacheAge = Date.now() - (cached.fetchedAt ?? 0)
     const hasTomorrow = lastDt >= tomorrow
-    const lastSlotActive = lastDt.getTime() + 3_600_000 > Date.now() // last hour not yet fully elapsed
+    const lastSlotActive = lastDt.getTime() + SLOT_MS > Date.now() // last slot not yet fully elapsed
     // keep cache if it covers tomorrow OR was fetched less than 1 h ago
     if ((hasTomorrow || cacheAge < 3_600_000) && lastSlotActive)
       return cached.data.map(d => ({ ...d, dt: new Date(d.dtIso) }))
@@ -52,30 +57,17 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
     ...(forwardRes.status === 'fulfilled' ? forwardRes.value : []),
   ]
 
-  // spot-hinta.fi returns 15-min slots — group into hourly averages
-  const hourMap = new Map<string, { dt: Date; total: number; count: number }>()
+  // spot-hinta.fi returns 15-min slots — keep them as-is, dedupe by slot key
+  const slotMap = new Map<string, PriceEntry>()
   raw
     .filter(d => d.DateTime != null)
     .forEach(d => {
-      const rawDt = new Date(d.DateTime)
-      const dt = new Date(Math.floor(rawDt.getTime() / 3_600_000) * 3_600_000)
-      const ts = dt.toISOString().slice(0, 13)
-      const entry = hourMap.get(ts)
-      if (entry) {
-        entry.total += d.PriceWithTax
-        entry.count++
-      } else hourMap.set(ts, { dt, total: d.PriceWithTax, count: 1 })
+      const dt = new Date(Math.floor(new Date(d.DateTime).getTime() / SLOT_MS) * SLOT_MS)
+      const ts = slotTs(dt)
+      slotMap.set(ts, { dt, spotCent: d.PriceWithTax * 100, hour: dt.getHours(), ts, source: 'actual' })
     })
 
-  const data: PriceEntry[] = [...hourMap.values()]
-    .map(({ dt, total, count }) => ({
-      dt,
-      spotCent: (total / count) * 100,
-      hour: dt.getHours(),
-      ts: dt.toISOString().slice(0, 13),
-      source: 'actual' as const,
-    }))
-    .sort((a, b) => a.dt.getTime() - b.dt.getTime())
+  const data = [...slotMap.values()].sort((a, b) => a.dt.getTime() - b.dt.getTime())
 
   lsSet(LS_SPOT_ACTUAL, { fetchedAt: Date.now(), data: data.map(d => ({ ...d, dtIso: d.dt.toISOString() })) })
   return data
@@ -115,12 +107,12 @@ export async function fetchPrices(): Promise<FetchPricesResult> {
   actual.forEach(d => merged.set(d.ts, d))
 
   const priceData = [...merged.values()].sort((a, b) => a.dt.getTime() - b.dt.getTime())
-  const nActual = priceData.filter(d => d.source === 'actual').length
-  const nPredict = priceData.filter(d => d.source === 'predicted').length
+  const hActual = Math.round(priceData.filter(d => d.source === 'actual').length / 4)
+  const hPredict = Math.round(priceData.filter(d => d.source === 'predicted').length / 4)
   const last = priceData[priceData.length - 1].dt
 
   return {
     priceData,
-    statusText: `${nActual} h spot · ${nPredict} h forecast (until ${last.toLocaleDateString('en-GB')})`,
+    statusText: `${hActual} h spot · ${hPredict} h forecast (until ${last.toLocaleDateString('en-GB')})`,
   }
 }

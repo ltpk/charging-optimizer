@@ -6,19 +6,19 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 
 ## Features
 
-- Fetches actual spot prices from [spot-hinta.fi](https://spot-hinta.fi) (today + tomorrow, 15-min intervals averaged to hourly), falling back to [nordpool-predict-fi](https://github.com/vividfog/nordpool-predict-fi) forecasts for uncovered hours
+- **15-minute resolution** end to end: actual spot prices from [spot-hinta.fi](https://spot-hinta.fi) (today + tomorrow) are used at their native quarter-hour market-time-unit resolution, so the plan catches price dips inside an hour; [nordpool-predict-fi](https://github.com/vividfog/nordpool-predict-fi) ML forecasts (hourly) fill the uncovered hours as flat quarters
 - Optional solar production forecast from [Forecast.Solar](https://forecast.solar) — offsets charging cost when solar covers part of charging power
-- Two optimization modes: cheapest **consecutive** block or cheapest **individual** hours — both account for the partially elapsed current hour (charging can start mid-hour; an hour with under 15 minutes left is skipped)
+- Two optimization modes: cheapest **consecutive** block or cheapest **individual** 15-min slots — both account for the partially elapsed current slot (charging can start mid-slot; a slot with under ~4 minutes left is skipped)
 - Optional **charge-by deadline** — constrains the search window to complete charging before a given hour (e.g. by 07:00); warns when the deadline is too tight to reach the target SOC, or when it has already passed
 - Configurable battery capacity, charging loss, charging power, grid transfer fees, and buy/sell margins (Finnish VAT 25.5% applied correctly)
 - Metrics panel shows a "Charge plan" box (hours needed, with rounded duration, kWh to be drawn from the grid, the estimated completion time "done by", and — when solar is enabled — the % of the charge covered by solar and estimated € saved vs. grid-only, both scoped to the recommended charging hours) and estimated total cost with average c/kWh for the optimal period; when solar is enabled a separate "Solar now" box shows the forecast solar output for the current hour
-- Cheapest-hours list bars use an absolute scale — length and color (green → amber → red) are normalized against all upcoming hours, so a full green bar means genuinely cheap, not just cheapest among the picked hours; the current hour is marked "now" and each row shows its price delta vs. the cheapest selected hour
-- Price chart shows net cost, spot price, day/night transfer fee, solar output, and the selected charging window; each x-axis tick marks the start of its hour, so the shaded windows and the night-rate step align with actual clock times, and the "now" line sits at the elapsed fraction of the current hour
+- Cheapest-hours list groups the selected 15-min slots per clock hour (partial rows like "21:45 · 15 min" at window edges); bars use an absolute scale — length and color (green → amber → red) are normalized against all upcoming slots, so a full green bar means genuinely cheap, not just cheapest among the picked slots; the current row is marked "now" and each row shows its price delta vs. the cheapest selected row
+- Price chart plots quarter-hour prices with hourly axis labels; shaded windows, the night-rate step, and the "now" line (at the elapsed fraction of the current slot) all align with actual clock times
 - Optional browser notification when the charging window starts (in-tab; enable in the sidebar)
 - Light/dark/system theme toggle; follows `prefers-color-scheme` by default
 - Mobile-responsive layout with collapsible settings sidebar
 - All data cached in `localStorage`; prices refresh hourly or on demand via the refresh button (a failed refresh keeps the last good data on screen and retries after 5 minutes), solar caches for the local calendar day and invalidates when location or panel parameters change
-- The "now" marker, current-hour status, and optimal window advance on the hour automatically (and when the tab regains focus), without needing a data refresh
+- The "now" marker, current-slot status, and optimal window advance on each quarter hour automatically (and when the tab regains focus), without needing a data refresh
 
 ## Development
 
@@ -45,8 +45,8 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 | Battery capacity   | Usable kWh                                                                          |
 | Charging loss      | Round-trip loss (%) — energy drawn from grid exceeds energy stored                  |
 | Charging power     | kW at the charger                                                                   |
-| Consecutive hours  | Contiguous block mode (default) vs. cheapest individual hours                       |
-| Charge by          | Optional deadline — optimizer only uses hours that complete before this hour-of-day |
+| Consecutive hours  | Contiguous block mode (default) vs. cheapest individual 15-min slots                |
+| Charge by          | Optional deadline — optimizer only uses slots that complete before this hour-of-day |
 | Transfer day/night | Grid transfer fee (c/kWh); night rate applies 22:00–07:00                           |
 | Buy margin         | Retailer margin on purchases (c/kWh, VAT-exclusive)                                 |
 | Sell margin        | Deducted from spot when calculating solar sell-back value                           |
@@ -61,9 +61,9 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 
 ## APIs used
 
-| API                                   | Purpose                                            | Cache                                                         |
-| ------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------- |
-| `api.spot-hinta.fi/today`             | Actual spot prices incl. VAT (15-min → hourly avg) | Re-fetched until tomorrow's prices are available, then stable |
-| `api.spot-hinta.fi/dayforward`        | Tomorrow's prices (available ~14:15)               | Same                                                          |
-| `nordpool-predict-fi` prediction.json | ML forecast for unpriced hours                     | 1 h TTL                                                       |
-| `api.forecast.solar`                  | Solar production estimate                          | Calendar day                                                  |
+| API                                   | Purpose                                     | Cache                                                         |
+| ------------------------------------- | ------------------------------------------- | ------------------------------------------------------------- |
+| `api.spot-hinta.fi/today`             | Actual spot prices incl. VAT (15-min slots) | Re-fetched until tomorrow's prices are available, then stable |
+| `api.spot-hinta.fi/dayforward`        | Tomorrow's prices (available ~14:15)        | Same                                                          |
+| `nordpool-predict-fi` prediction.json | Hourly ML forecast for unpriced hours       | 1 h TTL                                                       |
+| `api.forecast.solar`                  | Solar production estimate                   | Calendar day                                                  |
