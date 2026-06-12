@@ -89,7 +89,7 @@ calcNetCost(params, spotCent, hour, solarW):
 
 | Key                 | Contents                                                                                   | Invalidation                                                                               |
 | ------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `ev_spot_actual_v5` | spot-hinta.fi 15-min slot prices + `fetchedAt` timestamp                                   | Stale once the last slot has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
+| `ev_spot_actual_v6` | spot-hinta.fi 15-min slot prices + `fetchedAt` timestamp                                   | Stale once the last slot has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
 | `ev_spot_v5`        | nordpool-predict-fi forecast (expanded to 15-min slots)                                    | 1 h TTL (keyed on local date)                                                              |
 | `ev_solar_v6`       | Forecast.Solar per-hour average watts map + `key` (location/panel params)                  | Daily (local calendar date) or key mismatch                                                |
 | `ev_geo`            | `{ lat, lon }` strings                                                                     | Never (manual update)                                                                      |
