@@ -61,9 +61,9 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 
 ## APIs used
 
-| API                                   | Purpose                                     | Cache                                                         |
-| ------------------------------------- | ------------------------------------------- | ------------------------------------------------------------- |
-| `api.spot-hinta.fi/today`             | Actual spot prices incl. VAT (15-min slots) | Re-fetched until tomorrow's prices are available, then stable |
-| `api.spot-hinta.fi/dayforward`        | Tomorrow's prices (available ~14:15)        | Same                                                          |
-| `nordpool-predict-fi` prediction.json | Hourly ML forecast for unpriced hours       | 1 h TTL                                                       |
-| `api.forecast.solar`                  | Solar production estimate                   | Calendar day                                                  |
+| API                                   | Purpose                                                                     | Cache                                                         |
+| ------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `api.spot-hinta.fi/today`             | Actual spot prices, 15-min slots (VAT applied to the untaxed price locally) | Re-fetched until tomorrow's prices are available, then stable |
+| `api.spot-hinta.fi/dayforward`        | Tomorrow's prices (available ~14:15)                                        | Same                                                          |
+| `nordpool-predict-fi` prediction.json | Hourly ML forecast for unpriced hours                                       | 1 h TTL                                                       |
+| `api.forecast.solar`                  | Solar production estimate                                                   | Calendar day                                                  |

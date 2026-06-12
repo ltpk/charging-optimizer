@@ -1,5 +1,5 @@
 import { lsGet, lsSet, LS_SPOT, LS_SPOT_ACTUAL, localDateStr } from './storage'
-import { SLOT_MS, slotTs } from './optimization'
+import { ALV, SLOT_MS, slotTs } from './optimization'
 import type { PriceEntry } from '../types'
 
 const SPOT_TODAY_URL = 'https://api.spot-hinta.fi/today'
@@ -12,7 +12,7 @@ interface StoredEntry extends Omit<PriceEntry, 'dt'> {
 }
 interface SpotHintaRow {
   DateTime: string
-  PriceWithTax: number
+  PriceNoTax: number
 }
 
 // the prediction is hourly — expand each point into four flat 15-min slots
@@ -64,7 +64,9 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
     .forEach(d => {
       const dt = new Date(Math.floor(new Date(d.DateTime).getTime() / SLOT_MS) * SLOT_MS)
       const ts = slotTs(dt)
-      slotMap.set(ts, { dt, spotCent: d.PriceWithTax * 100, hour: dt.getHours(), ts, source: 'actual' })
+      // apply VAT to the untaxed price ourselves — the API's PriceWithTax is pre-rounded
+      // to 5 decimals, which can flip the displayed 2-decimal price (4.684915 → 4.69)
+      slotMap.set(ts, { dt, spotCent: d.PriceNoTax * 100 * ALV, hour: dt.getHours(), ts, source: 'actual' })
     })
 
   const data = [...slotMap.values()].sort((a, b) => a.dt.getTime() - b.dt.getTime())

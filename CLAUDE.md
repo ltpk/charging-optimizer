@@ -40,7 +40,7 @@ src/
   App.tsx                  — colorMode state + ThemeProvider, all data fetching, layout; result computed via useMemo(optimize(...))
   utils/
     storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants; localDateStr() (local YYYY-MM-DD for daily cache keys)
-    api.ts                 — fetchPrices(): merges spot-hinta.fi actual (native 15-min slots) + nordpool-predict-fi forecast (hourly, expanded into four flat quarters)
+    api.ts                 — fetchPrices(): merges spot-hinta.fi actual (native 15-min slots; spotCent = PriceNoTax × ALV, since the API's PriceWithTax is pre-rounded) + nordpool-predict-fi forecast (hourly, expanded into four flat quarters)
     solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match). UI azimuth is compass convention (0=N 180=S); fetchSolarData converts to Forecast.Solar's 0=S convention (`solarAz - 180`) when building the URL, and integrates the API's instantaneous watts points (piecewise-linear) into per-hour averages
     optimization.ts        — calcNetCost(), isNightHour(), optimize(prices, solar, params, now=new Date()), SLOT_MS/SLOT_H/slotTs() — pure functions over 15-min slots, no React imports
     optimization.test.ts   — bun:test unit tests for the optimization core
