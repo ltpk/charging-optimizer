@@ -164,9 +164,22 @@ export const PriceChart = memo(function PriceChart({
   const netCostData = slots.map(h => +h.netCost.toFixed(3))
   const spotData = slots.map(h => +h.spotCent.toFixed(3))
   const transferData = slots.map(h => (isNightHour(h.hour) ? params.transferNight : params.transferDay))
-  // Hold the last slot's fee through to the end-of-window tick
-  if (transferData.length > 0) transferData.push(transferData[transferData.length - 1])
-  const solarKw = slots.map(h => +(h.solarW / 1000).toFixed(3))
+  // solar slots repeat their hour's average — interpolate between hour centers so the
+  // curve reads as the smooth daily profile instead of an hourly staircase
+  const hourAvgW = new Map<string, number>()
+  slots.forEach(h => hourAvgW.set(h.ts.slice(0, 13), h.solarW))
+  const solarKw = slots.map(h => {
+    const hourStartMs = Math.floor(h.dt.getTime() / 3_600_000) * 3_600_000
+    const offsetH = (h.dt.getTime() + SLOT_MS / 2 - (hourStartMs + 1_800_000)) / 3_600_000 // slot center vs hour center
+    const nbKey = new Date(hourStartMs + Math.sign(offsetH) * 3_600_000).toISOString().slice(0, 13)
+    const nb = hourAvgW.get(nbKey) ?? h.solarW
+    const w = Math.abs(offsetH)
+    return +(((1 - w) * h.solarW + w * nb) / 1000).toFixed(3)
+  })
+  // Hold each line's last value through to the end-of-window tick so the final slot is covered
+  for (const arr of [netCostData, spotData, transferData, solarKw]) {
+    if (arr.length > 0) arr.push(arr[arr.length - 1])
+  }
   const maxY = Math.max(...netCostData, ...spotData, ...transferData, 1) * 1.2
   const minY = Math.min(0, ...netCostData, ...spotData) * 1.1
   const maxY2 = Math.max(...solarKw, 1) * 1.5
@@ -188,7 +201,8 @@ export const PriceChart = memo(function PriceChart({
         backgroundColor: alpha(P, 0.09),
         borderWidth: 1.5,
         pointRadius: 0,
-        tension: 0.3,
+        // prices are constant within a slot — step instead of smoothing through the jumps
+        stepped: 'before' as const,
         yAxisID: 'y',
         fill: true,
         order: 1,
@@ -205,7 +219,7 @@ export const PriceChart = memo(function PriceChart({
         borderColor: alpha(P, 0.4),
         borderWidth: 1,
         pointRadius: 0,
-        tension: 0.3,
+        stepped: 'before' as const,
         yAxisID: 'y',
         fill: false,
         order: 2,
