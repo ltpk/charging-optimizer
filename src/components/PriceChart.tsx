@@ -161,8 +161,10 @@ export const PriceChart = memo(function PriceChart({
   const labelStepH = Math.max(1, Math.ceil(dts.length / 4 / 12))
   const tickShow = dts.map(dt => dt.getMinutes() === 0 && dt.getHours() % labelStepH === 0)
 
-  const netCostData = slots.map(h => +h.netCost.toFixed(3))
-  const spotData = slots.map(h => +h.spotCent.toFixed(3))
+  // keep raw values — rounding here and again in the tooltip can disagree with
+  // the Metrics box on .xx5 prices (4.685 → 4.68 vs 4.69)
+  const netCostData = slots.map(h => h.netCost)
+  const spotData = slots.map(h => h.spotCent)
   const transferData = slots.map(h => (isNightHour(h.hour) ? params.transferNight : params.transferDay))
   // solar slots repeat their hour's average — interpolate between hour centers so the
   // curve reads as the smooth daily profile instead of an hourly staircase
