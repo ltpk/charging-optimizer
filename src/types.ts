@@ -61,6 +61,7 @@ export interface OptimizeResult {
   deadlinePassed: boolean
   nHours: number
   totalCost: number
+  savingsVsNow: number
   nowIdx: number
   slotSources: boolean[]
   netCostMin: number

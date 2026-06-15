@@ -179,6 +179,18 @@ describe('optimize', () => {
     expect(r.slots.every(h => h.solarW === 0)).toBe(true)
   })
 
+  test('reports savings vs charging straight through from now', () => {
+    const r = optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, baseParams, NOON)!
+    // optimal: hours 14–15 at net 3 → 0.30 €; charge-now: hours 12–13 at net 11 → 1.10 €
+    expect(r.savingsVsNow).toBeCloseTo(((11 - 3) * 2 * 5) / 100, 10)
+  })
+
+  test('no savings when the cheapest window already starts now', () => {
+    const r = optimize(prices(12, [2, 2, 10, 10]), {}, baseParams, NOON)!
+    expect(selectedHours(r)).toEqual([12, 13])
+    expect(r.savingsVsNow).toBeCloseTo(0, 10)
+  })
+
   test('netCostMin/netCostMax span the candidate slots', () => {
     const r = optimize(prices(12, [10, 2, 6]), {}, baseParams, NOON)!
     expect(r.netCostMin).toBeCloseTo(3, 10)

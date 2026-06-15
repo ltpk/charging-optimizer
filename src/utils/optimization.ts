@@ -189,6 +189,19 @@ export function optimize(
   const solarSavings = Math.max(0, ((gridSum - costSum) * params.chargingPower) / 100)
   const solarPct = achievableHours > EPS ? (shareSum / achievableHours) * 100 : 0
 
+  // baseline: cost of plugging in and charging straight through from now (the earliest
+  // consecutive candidate slots) — the optimal plan's saving vs this is what waiting buys.
+  // Both walks consume the same energy (capped by the candidate pool), so the € delta is purely timing.
+  let remNow = hoursNeeded
+  let costNowSum = 0
+  for (const h of candidates) {
+    if (remNow <= EPS) break
+    const used = Math.min(slotCapacity(h.dt, now), remNow)
+    costNowSum += used * h.netCost
+    remNow -= used
+  }
+  const savingsVsNow = Math.max(0, ((costNowSum - costSum) * params.chargingPower) / 100)
+
   const nowTs = slotTs(new Date(Math.floor(now.getTime() / SLOT_MS) * SLOT_MS))
 
   return {
@@ -203,6 +216,7 @@ export function optimize(
     deadlinePassed,
     nHours,
     totalCost,
+    savingsVsNow,
     nowIdx: slots.findIndex(h => h.ts === nowTs),
     slotSources: slots.map(h => h.source === 'actual'),
     netCostMin,

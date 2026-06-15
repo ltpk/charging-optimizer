@@ -371,6 +371,7 @@ export default function App() {
                   completionTime={result.completionTime}
                   nHours={result.nHours}
                   totalCost={result.totalCost}
+                  savingsVsNow={result.savingsVsNow}
                   spotNow={result.currentSlot.spotCent}
                   transferNow={getTransfer(params, result.currentSlot.hour)}
                   transferEnabled={params.transferEnabled}

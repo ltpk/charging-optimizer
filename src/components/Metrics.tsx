@@ -42,6 +42,7 @@ interface Props {
   completionTime: Date | null
   nHours: number
   totalCost: number
+  savingsVsNow: number
   spotNow: number
   transferNow: number
   transferEnabled: boolean
@@ -58,6 +59,7 @@ export function Metrics({
   completionTime,
   nHours,
   totalCost,
+  savingsVsNow,
   spotNow,
   transferNow,
   transferEnabled,
@@ -77,10 +79,12 @@ export function Metrics({
   if (solarEnabled) neededSub.push(`solar covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} €`)
   const nowSub = transferEnabled ? [`transfer ${transferNow.toFixed(2)} c/kWh`] : []
   if (solarEnabled) nowSub.push(`solar ${Math.round(solarNow)} W`)
+  const costSub = [`avg ${avgNetCost.toFixed(1)} c/kWh`]
+  if (savingsVsNow >= 0.005) costSub.push(`saves ${savingsVsNow.toFixed(2)} € vs now`)
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 1.5 }}>
       <Metric label="Charge plan" value={hoursNeeded.toFixed(1)} unit="h" sub={neededSub} />
-      <Metric label="Est. cost" value={totalCost.toFixed(2)} unit="€" sub={`avg ${avgNetCost.toFixed(1)} c/kWh`} />
+      <Metric label="Est. cost" value={totalCost.toFixed(2)} unit="€" sub={costSub} />
       <Metric label="Spot now" value={spotNow.toFixed(2)} unit="c/kWh" sub={nowSub} />
     </Box>
   )
