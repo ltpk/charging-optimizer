@@ -16,7 +16,7 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 - Price chart plots quarter-hour prices as stepped lines (a price holds for its 15-min slot) with hourly axis labels and a smoothed solar curve; shaded windows, the night-rate step, and the "now" line (at the elapsed fraction of the current slot) all align with actual clock times
 - Optional browser notification when the charging window starts (in-tab; enable in the sidebar)
 - Light/dark/system theme toggle; follows `prefers-color-scheme` by default
-- Mobile-responsive layout with collapsible settings sidebar
+- Mobile-responsive layout: settings are an inline sidebar on desktop and a slide-in drawer on mobile; set-once config (vehicle, transfer fee, margins, solar) is tucked under an "Advanced Setup" section, and info tooltips explain the less obvious fields
 - All data cached in `localStorage`; prices refresh hourly or on demand via the refresh button (a failed refresh keeps the last good data on screen and retries after 5 minutes), solar caches for the local calendar day and invalidates when location or panel parameters change
 - The "now" marker, current-slot status, and optimal window advance on each quarter hour automatically (and when the tab regains focus), without needing a data refresh
 

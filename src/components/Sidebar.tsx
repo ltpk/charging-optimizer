@@ -13,17 +13,34 @@ import {
   Paper,
   CircularProgress,
   IconButton,
+  Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { Params, GeoCoords, ApiStatus } from '../types'
 
 // ── helpers ────────────────────────────────────────────────────
 
-function SectionLabel({ children }: { children: string }) {
+function InfoTip({ text }: { text: string }) {
+  return (
+    <Tooltip title={text} enterTouchDelay={0} leaveTouchDelay={4000}>
+      <InfoOutlinedIcon
+        sx={{ fontSize: 14, color: 'text.disabled', ml: 0.5, verticalAlign: 'middle', cursor: 'help' }}
+      />
+    </Tooltip>
+  )
+}
+
+function SectionLabel({ children, info }: { children: string; info?: string }) {
   return (
     <Typography variant="overline" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
       {children}
+      {info && <InfoTip text={info} />}
     </Typography>
   )
 }
@@ -36,14 +53,16 @@ interface SliderFieldProps {
   max: number
   step: number
   onChange: (v: number) => void
+  info?: string
 }
 
-function SliderField({ label, value, unit, min, max, step, onChange }: SliderFieldProps) {
+function SliderField({ label, value, unit, min, max, step, onChange, info }: SliderFieldProps) {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
         <Typography variant="body2" color="text.secondary">
           {label}
+          {info && <InfoTip text={info} />}
         </Typography>
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
           {value} {unit}
@@ -69,9 +88,10 @@ interface NumFieldProps {
   min?: number
   max?: number
   onCommit: (v: number) => void
+  info?: string
 }
 
-function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
+function NumField({ label, value, step, min, max, onCommit, info }: NumFieldProps) {
   const id = useId()
   return (
     <Box>
@@ -84,6 +104,7 @@ function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
         sx={{ display: 'block' }}
       >
         {label}
+        {info && <InfoTip text={info} />}
       </Typography>
       <TextField
         id={id}
@@ -102,11 +123,29 @@ function NumField({ label, value, step, min, max, onCommit }: NumFieldProps) {
   )
 }
 
+// label with an optional info tip, used for the toggle-group controls
+function FieldLabel({ children, info }: { children: string; info?: string }) {
+  return (
+    <Typography variant="body2" color="text.secondary" gutterBottom>
+      {children}
+      {info && <InfoTip text={info} />}
+    </Typography>
+  )
+}
+
 // ── status dots ────────────────────────────────────────────────
 
 function StatusDot({ ok, warn }: { ok: boolean; warn: boolean }) {
-  if (!ok && !warn) return <CircularProgress size={10} />
-  return <FiberManualRecordIcon color={ok ? 'success' : 'warning'} sx={{ fontSize: 10 }} />
+  const title = !ok && !warn ? 'Loading…' : ok ? 'Up to date' : 'Stale — showing last good data'
+  return (
+    <Tooltip title={title}>
+      {!ok && !warn ? (
+        <CircularProgress size={10} />
+      ) : (
+        <FiberManualRecordIcon color={ok ? 'success' : 'warning'} sx={{ fontSize: 10 }} />
+      )}
+    </Tooltip>
+  )
 }
 
 // ── main component ─────────────────────────────────────────────
@@ -151,6 +190,7 @@ export function Sidebar({
         px: 2,
         py: 2.5,
         width: { md: 300 },
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         gap: 1.75,
@@ -161,10 +201,20 @@ export function Sidebar({
       {/* Battery state */}
       <Box>
         <SectionLabel>Battery State</SectionLabel>
-        <SliderField label="SOC now" value={params.socNow} unit="%" min={0} max={100} step={1} onChange={p('socNow')} />
+        <SliderField
+          label="SOC now"
+          info="State of charge — your battery's current level."
+          value={params.socNow}
+          unit="%"
+          min={0}
+          max={100}
+          step={1}
+          onChange={p('socNow')}
+        />
         <Box sx={{ mt: 1.5 }} />
         <SliderField
           label="SOC target"
+          info="State of charge you want to reach."
           value={params.socTarget}
           unit="%"
           min={10}
@@ -181,43 +231,31 @@ export function Sidebar({
 
       <Divider />
 
-      {/* Charging parameters */}
+      {/* Charging plan */}
       <Box>
-        <SectionLabel>Charging Parameters</SectionLabel>
+        <SectionLabel>Charging Plan</SectionLabel>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          <NumField
-            label="Battery capacity (kWh)"
-            value={params.batteryCapacity}
-            step={1}
-            onCommit={p('batteryCapacity')}
-          />
-          <NumField label="Charging loss (%)" value={params.chargingLoss} step={1} onCommit={p('chargingLoss')} />
-          <NumField
-            label="Charging power (kW)"
-            value={params.chargingPower}
-            step={0.1}
-            min={0.1}
-            onCommit={p('chargingPower')}
-          />
-          <FormControlLabel
-            sx={{ mx: 0, gap: 0.5 }}
-            control={
-              <Checkbox
-                size="small"
-                checked={params.consecutive}
-                onChange={e => onParamChange('consecutive', e.target.checked)}
-              />
-            }
-            label={
-              <Typography variant="body2" color="text.secondary">
-                Consecutive hours
-              </Typography>
-            }
-          />
           <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <FieldLabel info="One block charges in a single continuous session. Cheapest slots picks the lowest-priced 15-min slots even if they're split across the day.">
+              Charging mode
+            </FieldLabel>
+            <ToggleButtonGroup
+              value={params.consecutive}
+              exclusive
+              fullWidth
+              size="small"
+              onChange={(_, v: boolean | null) => {
+                if (v != null) onParamChange('consecutive', v)
+              }}
+            >
+              <ToggleButton value={true}>One block</ToggleButton>
+              <ToggleButton value={false}>Cheapest slots</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <Box>
+            <FieldLabel info="How many hours ahead to search for the optimal charging window.">
               Search window
-            </Typography>
+            </FieldLabel>
             <ToggleButtonGroup
               value={params.horizonH}
               exclusive
@@ -245,6 +283,7 @@ export function Sidebar({
               label={
                 <Typography variant="body2" color="text.secondary">
                   Charge by
+                  <InfoTip text="Constrain charging to finish before a chosen time of day." />
                 </Typography>
               }
             />
@@ -287,179 +326,230 @@ export function Sidebar({
 
       <Divider />
 
-      {/* Transfer fee */}
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-          <SectionLabel>Transfer Fee</SectionLabel>
-          <FormControlLabel
-            sx={{ mx: 0, gap: 0.5 }}
-            control={
-              <Checkbox
-                size="small"
-                checked={params.transferEnabled}
-                onChange={e => onParamChange('transferEnabled', e.target.checked)}
-              />
-            }
-            label={
-              <Typography variant="body2" color="text.secondary">
-                Enable
-              </Typography>
-            }
-          />
-        </Box>
-        {params.transferEnabled && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-            <ToggleButtonGroup
-              value={params.transferFixed}
-              exclusive
-              fullWidth
-              size="small"
-              onChange={(_, v: boolean | null) => {
-                if (v != null) onParamChange('transferFixed', v)
-              }}
-            >
-              <ToggleButton value={true}>Fixed</ToggleButton>
-              <ToggleButton value={false}>Day / Night</ToggleButton>
-            </ToggleButtonGroup>
-            {params.transferFixed ? (
+      {/* Advanced — set-once vehicle & pricing config */}
+      <Accordion disableGutters square elevation={0} sx={{ bgcolor: 'transparent', '&::before': { display: 'none' } }}>
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon fontSize="small" />}
+          sx={{ px: 0, minHeight: 'auto', '& .MuiAccordionSummary-content': { my: 0.5 } }}
+        >
+          <SectionLabel info="Set once and forget — your car, grid contract, and solar setup.">
+            Advanced Setup
+          </SectionLabel>
+        </AccordionSummary>
+        <AccordionDetails sx={{ p: 0, display: 'flex', flexDirection: 'column', gap: 1.75 }}>
+          {/* Vehicle */}
+          <Box>
+            <SectionLabel>Vehicle</SectionLabel>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
               <NumField
-                label="Transfer fee (c/kWh)"
-                value={params.transferFee}
-                step={0.01}
-                onCommit={p('transferFee')}
+                label="Battery capacity (kWh)"
+                info="Usable battery size."
+                value={params.batteryCapacity}
+                step={1}
+                onCommit={p('batteryCapacity')}
               />
-            ) : (
-              <>
-                <NumField
-                  label="Transfer day (c/kWh)"
-                  value={params.transferDay}
-                  step={0.01}
-                  onCommit={p('transferDay')}
-                />
-                <NumField
-                  label="Transfer night (c/kWh, 22–07)"
-                  value={params.transferNight}
-                  step={0.01}
-                  onCommit={p('transferNight')}
-                />
-              </>
-            )}
+              <NumField
+                label="Charging loss (%)"
+                info="Energy lost as heat etc. — grid draw exceeds energy stored. Typically 5–15%."
+                value={params.chargingLoss}
+                step={1}
+                onCommit={p('chargingLoss')}
+              />
+              <NumField
+                label="Charging power (kW)"
+                info="Charging speed at your charger/connector."
+                value={params.chargingPower}
+                step={0.1}
+                min={0.1}
+                onCommit={p('chargingPower')}
+              />
+            </Box>
           </Box>
-        )}
-      </Box>
 
-      <Divider />
+          <Divider />
 
-      {/* Electricity parameters */}
-      <Box>
-        <SectionLabel>Margins</SectionLabel>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          <NumField
-            label="Buy margin (c/kWh, excl. VAT)"
-            value={params.buyMargin}
-            step={0.01}
-            onCommit={p('buyMargin')}
-          />
-          <NumField
-            label="Sell margin (c/kWh, from spot)"
-            value={params.sellMargin}
-            step={0.01}
-            onCommit={p('sellMargin')}
-          />
-        </Box>
-      </Box>
-
-      <Divider />
-
-      {/* Solar PV */}
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-          <SectionLabel>Solar PV</SectionLabel>
-          <FormControlLabel
-            sx={{ mx: 0, gap: 0.5 }}
-            control={
-              <Checkbox
-                size="small"
-                checked={params.solarEnabled}
-                onChange={e => onParamChange('solarEnabled', e.target.checked)}
+          {/* Transfer fee */}
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+              <SectionLabel info="Grid distribution fee (siirto) per kWh, separate from the energy price.">
+                Transfer Fee
+              </SectionLabel>
+              <FormControlLabel
+                sx={{ mx: 0, gap: 0.5 }}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={params.transferEnabled}
+                    onChange={e => onParamChange('transferEnabled', e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Enable
+                  </Typography>
+                }
               />
-            }
-            label={
-              <Typography variant="body2" color="text.secondary">
-                Enable
-              </Typography>
-            }
-          />
-        </Box>
-        {params.solarEnabled && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-            <NumField
-              label="Tilt angle (°, 0=horizontal)"
-              value={params.solarDec}
-              step={1}
-              min={0}
-              max={90}
-              onCommit={p('solarDec')}
-            />
-            <NumField
-              label="Azimuth (°, 0=N 90=E 180=S 270=W)"
-              value={params.solarAz}
-              step={1}
-              min={0}
-              max={359}
-              onCommit={p('solarAz')}
-            />
-            <NumField
-              label="Peak power (kWp)"
-              value={params.solarKwp}
-              step={0.1}
-              min={0.1}
-              max={30}
-              onCommit={p('solarKwp')}
-            />
-
-            <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Location
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Button variant="outlined" size="small" onClick={onGetGeo}>
-                  Get GPS
-                </Button>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{
-                    flex: 1,
-                    textAlign: 'right',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+            </Box>
+            {params.transferEnabled && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                <ToggleButtonGroup
+                  value={params.transferFixed}
+                  exclusive
+                  fullWidth
+                  size="small"
+                  onChange={(_, v: boolean | null) => {
+                    if (v != null) onParamChange('transferFixed', v)
                   }}
                 >
-                  {geoCoords ? `${geoCoords.lat}, ${geoCoords.lon}` : '–'}
-                </Typography>
+                  <ToggleButton value={true}>Fixed</ToggleButton>
+                  <ToggleButton value={false}>Day / Night</ToggleButton>
+                </ToggleButtonGroup>
+                {params.transferFixed ? (
+                  <NumField
+                    label="Transfer fee (c/kWh)"
+                    value={params.transferFee}
+                    step={0.01}
+                    onCommit={p('transferFee')}
+                  />
+                ) : (
+                  <>
+                    <NumField
+                      label="Transfer day (c/kWh)"
+                      value={params.transferDay}
+                      step={0.01}
+                      onCommit={p('transferDay')}
+                    />
+                    <NumField
+                      label="Transfer night (c/kWh, 22–07)"
+                      value={params.transferNight}
+                      step={0.01}
+                      onCommit={p('transferNight')}
+                    />
+                  </>
+                )}
               </Box>
-            </Box>
+            )}
+          </Box>
 
-            <Box>
-              <Button variant="outlined" size="small" fullWidth onClick={onFetchSolar}>
-                Fetch solar forecast
-              </Button>
-              <Typography
-                variant="body2"
-                sx={{
-                  display: 'block',
-                  mt: 0.75,
-                  color: solarStatus.ok ? 'success.main' : solarStatus.warn ? 'warning.main' : 'text.secondary',
-                }}
-              >
-                {solarStatus.text}
-              </Typography>
+          <Divider />
+
+          {/* Margins */}
+          <Box>
+            <SectionLabel>Margins</SectionLabel>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+              <NumField
+                label="Buy margin (c/kWh, excl. VAT)"
+                info="Your retailer's added margin per kWh on top of spot, before VAT."
+                value={params.buyMargin}
+                step={0.01}
+                onCommit={p('buyMargin')}
+              />
+              <NumField
+                label="Sell margin (c/kWh, from spot)"
+                info="Deducted from spot when valuing solar energy sold back to the grid."
+                value={params.sellMargin}
+                step={0.01}
+                onCommit={p('sellMargin')}
+              />
             </Box>
           </Box>
-        )}
-      </Box>
+
+          <Divider />
+
+          {/* Solar PV */}
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+              <SectionLabel info="Offsets charging cost with forecast solar production.">Solar PV</SectionLabel>
+              <FormControlLabel
+                sx={{ mx: 0, gap: 0.5 }}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={params.solarEnabled}
+                    onChange={e => onParamChange('solarEnabled', e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2" color="text.secondary">
+                    Enable
+                  </Typography>
+                }
+              />
+            </Box>
+            {params.solarEnabled && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+                <NumField
+                  label="Tilt angle (°, 0=horizontal)"
+                  info="Panel angle from horizontal. 0° = flat, 90° = vertical."
+                  value={params.solarDec}
+                  step={1}
+                  min={0}
+                  max={90}
+                  onCommit={p('solarDec')}
+                />
+                <NumField
+                  label="Azimuth (°, 0=N 90=E 180=S 270=W)"
+                  info="Compass direction the panels face. 180° = due south."
+                  value={params.solarAz}
+                  step={1}
+                  min={0}
+                  max={359}
+                  onCommit={p('solarAz')}
+                />
+                <NumField
+                  label="Peak power (kWp)"
+                  info="Total rated capacity of your panels."
+                  value={params.solarKwp}
+                  step={0.1}
+                  min={0.1}
+                  max={30}
+                  onCommit={p('solarKwp')}
+                />
+
+                <Box>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Location
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button variant="outlined" size="small" onClick={onGetGeo}>
+                      Get GPS
+                    </Button>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        flex: 1,
+                        textAlign: 'right',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {geoCoords ? `${geoCoords.lat}, ${geoCoords.lon}` : '–'}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box>
+                  <Button variant="outlined" size="small" fullWidth onClick={onFetchSolar}>
+                    Fetch solar forecast
+                  </Button>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      display: 'block',
+                      mt: 0.75,
+                      color: solarStatus.ok ? 'success.main' : solarStatus.warn ? 'warning.main' : 'text.secondary',
+                    }}
+                  >
+                    {solarStatus.text}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+          </Box>
+        </AccordionDetails>
+      </Accordion>
 
       {/* Notifications */}
       <Box sx={{ mt: 'auto' }}>

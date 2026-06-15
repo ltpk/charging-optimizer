@@ -5,7 +5,7 @@ import {
   CircularProgress,
   Alert,
   Button,
-  Collapse,
+  Drawer,
   AppBar,
   Toolbar,
   ToggleButtonGroup,
@@ -221,6 +221,21 @@ export default function App() {
     prevGoRef.current = isGo
   }, [result, isGo, notifyEnabled])
 
+  const sidebar = (
+    <Sidebar
+      params={params}
+      onParamChange={onParamChange}
+      geoCoords={geoCoords}
+      onGetGeo={handleGetGeo}
+      onFetchSolar={handleFetchSolar}
+      onRefreshPrices={handleRefreshPrices}
+      spotStatus={spotStatus}
+      solarStatus={solarStatus}
+      notifyEnabled={notifyEnabled}
+      onToggleNotify={handleToggleNotify}
+    />
+  )
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -292,22 +307,19 @@ export default function App() {
 
         {/* Sidebar + main */}
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, flex: 1, minHeight: 0 }}>
-          <Box sx={{ flexShrink: 0 }}>
-            <Collapse in={isMdUp || sidebarOpen}>
-              <Sidebar
-                params={params}
-                onParamChange={onParamChange}
-                geoCoords={geoCoords}
-                onGetGeo={handleGetGeo}
-                onFetchSolar={handleFetchSolar}
-                onRefreshPrices={handleRefreshPrices}
-                spotStatus={spotStatus}
-                solarStatus={solarStatus}
-                notifyEnabled={notifyEnabled}
-                onToggleNotify={handleToggleNotify}
-              />
-            </Collapse>
-          </Box>
+          {isMdUp ? (
+            <Box sx={{ flexShrink: 0 }}>{sidebar}</Box>
+          ) : (
+            <Drawer
+              anchor="left"
+              open={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+              ModalProps={{ keepMounted: true }}
+              sx={{ '& .MuiDrawer-paper': { width: 300, maxWidth: '85vw' } }}
+            >
+              {sidebar}
+            </Drawer>
+          )}
 
           <Box
             component="main"
