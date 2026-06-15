@@ -13,7 +13,7 @@ import {
 } from 'chart.js'
 import { Chart } from 'react-chartjs-2'
 import type { Plugin, ScriptableLineSegmentContext, ChartOptions } from 'chart.js'
-import { isNightHour, SLOT_MS } from '../utils/optimization'
+import { isNightHour, getTransfer, SLOT_MS } from '../utils/optimization'
 import type { SlotEntry, Params } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, LineController, PointElement, Tooltip, Filler)
@@ -143,6 +143,7 @@ export const PriceChart = memo(function PriceChart({
   )
 
   const solarEnabled = params.solarEnabled
+  const transferEnabled = params.transferEnabled
 
   const showDate = horizonH > 24
   const fmtLabel = (dt: Date, first: boolean) => {
@@ -165,7 +166,7 @@ export const PriceChart = memo(function PriceChart({
   // the Metrics box on .xx5 prices (4.685 → 4.68 vs 4.69)
   const netCostData = slots.map(h => h.netCost)
   const spotData = slots.map(h => h.spotCent)
-  const transferData = slots.map(h => (isNightHour(h.hour) ? params.transferNight : params.transferDay))
+  const transferData = slots.map(h => getTransfer(params, h.hour))
   // solar slots repeat their hour's average — interpolate between hour centers so the
   // curve reads as the smooth daily profile instead of an hourly staircase
   const hourAvgW = new Map<string, number>()
@@ -231,20 +232,24 @@ export const PriceChart = memo(function PriceChart({
           borderDash: (ctx: ScriptableLineSegmentContext) => (slotSources[ctx.p0DataIndex] ? [] : [2, 3]),
         },
       },
-      {
-        type: 'line' as const,
-        label: 'Transfer fee',
-        data: transferData,
-        borderColor: theme.palette.text.secondary,
-        borderWidth: 1,
-        pointRadius: 0,
-        tension: 0,
-        stepped: 'before' as const,
-        yAxisID: 'y',
-        fill: false,
-        order: 3,
-        borderDash: [4, 3],
-      },
+      ...(transferEnabled
+        ? [
+            {
+              type: 'line' as const,
+              label: 'Transfer fee',
+              data: transferData,
+              borderColor: theme.palette.text.secondary,
+              borderWidth: 1,
+              pointRadius: 0,
+              tension: 0,
+              stepped: 'before' as const,
+              yAxisID: 'y',
+              fill: false,
+              order: 3,
+              borderDash: [4, 3],
+            },
+          ]
+        : []),
       ...(solarEnabled
         ? [
             {
@@ -340,7 +345,7 @@ export const PriceChart = memo(function PriceChart({
             { color: P, label: 'Net cost (c/kWh)' },
             { color: alpha(P, 0.73), label: 'Spot actual (c/kWh)' },
             { color: alpha(P, 0.35), label: 'Spot forecast (c/kWh)' },
-            { color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' },
+            ...(transferEnabled ? [{ color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' }] : []),
             ...(solarEnabled ? [{ color: alpha(S, 0.8), label: 'Solar output (kW)' }] : []),
             { color: alpha(S, 0.25), label: 'Selected window', border: true },
             { color: nightBg, label: 'Night rate', border: true },

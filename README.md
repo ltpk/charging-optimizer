@@ -39,19 +39,19 @@ No environment variables or API keys required — all APIs are public.
 
 All parameters are set in the sidebar UI and persisted automatically. Key inputs:
 
-| Parameter          | Description                                                                         |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| SOC now / target   | Current and desired battery state of charge (%)                                     |
-| Battery capacity   | Usable kWh                                                                          |
-| Charging loss      | Round-trip loss (%) — energy drawn from grid exceeds energy stored                  |
-| Charging power     | kW at the charger                                                                   |
-| Consecutive hours  | Contiguous block mode (default) vs. cheapest individual 15-min slots                |
-| Charge by          | Optional deadline — optimizer only uses slots that complete before this hour-of-day |
-| Transfer day/night | Grid transfer fee (c/kWh); night rate applies 22:00–07:00                           |
-| Buy margin         | Retailer margin on purchases (c/kWh, VAT-exclusive)                                 |
-| Sell margin        | Deducted from spot when calculating solar sell-back value                           |
-| Search window      | How many hours ahead to search for the optimal window                               |
-| Solar PV (enable)  | Toggle solar influence on/off without losing panel configuration                    |
+| Parameter         | Description                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| SOC now / target  | Current and desired battery state of charge (%)                                                                             |
+| Battery capacity  | Usable kWh                                                                                                                  |
+| Charging loss     | Round-trip loss (%) — energy drawn from grid exceeds energy stored                                                          |
+| Charging power    | kW at the charger                                                                                                           |
+| Consecutive hours | Contiguous block mode (default) vs. cheapest individual 15-min slots                                                        |
+| Charge by         | Optional deadline — optimizer only uses slots that complete before this hour-of-day                                         |
+| Transfer fee      | Grid transfer fee (c/kWh); toggle on/off, choose a single fixed fee or separate day/night rates (night applies 22:00–07:00) |
+| Buy margin        | Retailer margin on purchases (c/kWh, VAT-exclusive)                                                                         |
+| Sell margin       | Deducted from spot when calculating solar sell-back value                                                                   |
+| Search window     | How many hours ahead to search for the optimal window                                                                       |
+| Solar PV (enable) | Toggle solar influence on/off without losing panel configuration                                                            |
 
 ## Solar setup
 

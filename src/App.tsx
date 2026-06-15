@@ -26,7 +26,7 @@ import { HourList } from './components/HourList'
 import { PriceChart } from './components/PriceChart'
 import { fetchPrices } from './utils/api'
 import { fetchSolarData, loadCachedSolar, solarCacheKey } from './utils/solar'
-import { optimize, isNightHour, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
+import { optimize, getTransfer, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
 import { lsGet, lsSet, LS_PARAMS, LS_GEO, LS_COLOR_MODE, LS_NOTIFY } from './utils/storage'
 import type { Params, PriceEntry, SolarData, GeoCoords, ApiStatus, OptimizeResult } from './types'
 
@@ -372,7 +372,8 @@ export default function App() {
                   nHours={result.nHours}
                   totalCost={result.totalCost}
                   spotNow={result.currentSlot.spotCent}
-                  transferNow={isNightHour(result.currentSlot.hour) ? params.transferNight : params.transferDay}
+                  transferNow={getTransfer(params, result.currentSlot.hour)}
+                  transferEnabled={params.transferEnabled}
                   solarNow={result.solarNow}
                   solarPct={result.solarPct}
                   solarSavings={result.solarSavings}

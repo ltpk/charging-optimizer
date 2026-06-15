@@ -36,6 +36,9 @@ export interface Params {
   chargeByEnabled: boolean
   chargeByHour: number
   chargeByDay: number
+  transferEnabled: boolean
+  transferFixed: boolean // true: single fixed fee; false: separate day/night fees
+  transferFee: number // fixed fee, used when transferFixed
   transferDay: number
   transferNight: number
   buyMargin: number

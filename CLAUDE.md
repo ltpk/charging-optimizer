@@ -74,7 +74,7 @@ calcNetCost(params, spotCent, hour, solarW):
 
 - `ALV = 1.255` — Finnish VAT 25.5%
 - All slots are 15 minutes (`SLOT_MS = 900_000`, `SLOT_H = 0.25`); capacities/needs are expressed in **hours**
-- Transfer fee: `transferNight` for hours 22–07 (`isNightHour()` on the slot's start hour, shared with PriceChart), `transferDay` otherwise
+- Transfer fee: resolved by exported `getTransfer(params, hour)` (shared by App's "Spot now" metric and PriceChart). Returns 0 when `transferEnabled=false`; a single `transferFee` when `transferFixed=true`; otherwise `transferNight` for hours 22–07 (`isNightHour()` on the slot's start hour) and `transferDay` otherwise. The transfer line/legend in PriceChart and the "transfer" sub-line in Metrics are hidden when `transferEnabled=false`
 - Graph window: last 6 h of past + `horizonH` hours ahead
 - **Slot capacity** (`slotCapacity`, in hours): future slots count as `SLOT_H`; the in-progress slot counts only for its remaining fraction, and is dropped from candidates below `MIN_SLOT_CAPACITY = 0.25 * SLOT_H` (< ~3.75 min left)
 - Candidate set (`candidates`): slots with usable capacity, bounded by `horizonH` and optional charge-by deadline (`chargeByDay` offset 0/1/2 + `chargeByHour`); a deadline already in the past sets `deadlinePassed` and yields an empty candidate set

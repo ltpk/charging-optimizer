@@ -17,13 +17,16 @@ export const DEFAULT_PARAMS: Params = {
   socNow: 50,
   socTarget: 80,
   batteryCapacity: 77,
-  chargingLoss: 11,
-  chargingPower: 5.5,
+  chargingLoss: 10,
+  chargingPower: 11,
   consecutive: true,
   horizonH: 24,
   chargeByEnabled: false,
   chargeByHour: 7,
   chargeByDay: 1,
+  transferEnabled: true,
+  transferFixed: false,
+  transferFee: 5.26,
   transferDay: 5.11,
   transferNight: 3.12,
   buyMargin: 0.54,
@@ -44,7 +47,9 @@ export function isNightHour(hour: number): boolean {
   return hour >= 22 || hour < 7
 }
 
-function getTransfer(p: Params, hour: number): number {
+export function getTransfer(p: Params, hour: number): number {
+  if (!p.transferEnabled) return 0
+  if (p.transferFixed) return p.transferFee
   return isNightHour(hour) ? p.transferNight : p.transferDay
 }
 

@@ -287,17 +287,73 @@ export function Sidebar({
 
       <Divider />
 
+      {/* Transfer fee */}
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+          <SectionLabel>Transfer Fee</SectionLabel>
+          <FormControlLabel
+            sx={{ mx: 0, gap: 0.5 }}
+            control={
+              <Checkbox
+                size="small"
+                checked={params.transferEnabled}
+                onChange={e => onParamChange('transferEnabled', e.target.checked)}
+              />
+            }
+            label={
+              <Typography variant="body2" color="text.secondary">
+                Enable
+              </Typography>
+            }
+          />
+        </Box>
+        {params.transferEnabled && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+            <ToggleButtonGroup
+              value={params.transferFixed}
+              exclusive
+              fullWidth
+              size="small"
+              onChange={(_, v: boolean | null) => {
+                if (v != null) onParamChange('transferFixed', v)
+              }}
+            >
+              <ToggleButton value={true}>Fixed</ToggleButton>
+              <ToggleButton value={false}>Day / Night</ToggleButton>
+            </ToggleButtonGroup>
+            {params.transferFixed ? (
+              <NumField
+                label="Transfer fee (c/kWh)"
+                value={params.transferFee}
+                step={0.01}
+                onCommit={p('transferFee')}
+              />
+            ) : (
+              <>
+                <NumField
+                  label="Transfer day (c/kWh)"
+                  value={params.transferDay}
+                  step={0.01}
+                  onCommit={p('transferDay')}
+                />
+                <NumField
+                  label="Transfer night (c/kWh, 22–07)"
+                  value={params.transferNight}
+                  step={0.01}
+                  onCommit={p('transferNight')}
+                />
+              </>
+            )}
+          </Box>
+        )}
+      </Box>
+
+      <Divider />
+
       {/* Electricity parameters */}
       <Box>
-        <SectionLabel>Electricity Parameters</SectionLabel>
+        <SectionLabel>Margins</SectionLabel>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-          <NumField label="Transfer day (c/kWh)" value={params.transferDay} step={0.01} onCommit={p('transferDay')} />
-          <NumField
-            label="Transfer night (c/kWh, 22–07)"
-            value={params.transferNight}
-            step={0.01}
-            onCommit={p('transferNight')}
-          />
           <NumField
             label="Buy margin (c/kWh, excl. VAT)"
             value={params.buyMargin}

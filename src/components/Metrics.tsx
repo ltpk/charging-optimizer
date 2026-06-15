@@ -44,6 +44,7 @@ interface Props {
   totalCost: number
   spotNow: number
   transferNow: number
+  transferEnabled: boolean
   solarNow: number
   solarPct: number
   solarSavings: number
@@ -59,6 +60,7 @@ export function Metrics({
   totalCost,
   spotNow,
   transferNow,
+  transferEnabled,
   solarNow,
   solarPct,
   solarSavings,
@@ -73,7 +75,7 @@ export function Metrics({
   const neededSub = [`${nHours} h rounded · ${kWhNeeded.toFixed(1)} kWh`]
   if (doneBy) neededSub.push(doneBy)
   if (solarEnabled) neededSub.push(`solar covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} €`)
-  const nowSub = [`transfer ${transferNow.toFixed(2)} c/kWh`]
+  const nowSub = transferEnabled ? [`transfer ${transferNow.toFixed(2)} c/kWh`] : []
   if (solarEnabled) nowSub.push(`solar ${Math.round(solarNow)} W`)
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 1.5 }}>
