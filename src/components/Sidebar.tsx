@@ -240,7 +240,7 @@ export function Sidebar({
         <SectionLabel>Charging Plan</SectionLabel>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
           <Box>
-            <FieldLabel info="One block charges in a single continuous session. Cheapest slots picks the lowest-priced 15-min slots even if they're split across the day.">
+            <FieldLabel info="Consecutive hours charges in a single continuous session. Split slots picks the lowest-priced 15-min slots even if they're spread across the day.">
               Charging mode
             </FieldLabel>
             <ToggleButtonGroup
@@ -252,8 +252,8 @@ export function Sidebar({
                 if (v != null) onParamChange('consecutive', v)
               }}
             >
-              <ToggleButton value={true}>One block</ToggleButton>
-              <ToggleButton value={false}>Cheapest slots</ToggleButton>
+              <ToggleButton value={true}>Consecutive hours</ToggleButton>
+              <ToggleButton value={false}>Split slots</ToggleButton>
             </ToggleButtonGroup>
           </Box>
           <Box>
