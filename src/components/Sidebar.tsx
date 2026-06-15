@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import {
   Box,
   Divider,
@@ -22,6 +22,7 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { lsGet, lsSet, LS_ADVANCED_OPEN } from '../utils/storage'
 import type { Params, GeoCoords, ApiStatus } from '../types'
 
 // ── helpers ────────────────────────────────────────────────────
@@ -180,6 +181,9 @@ export function Sidebar({
     (v: Params[K]) =>
       onParamChange(key, v)
 
+  // Advanced section open by default; remember once the user collapses/expands it
+  const [advancedOpen, setAdvancedOpen] = useState<boolean>(() => lsGet<boolean>(LS_ADVANCED_OPEN) ?? true)
+
   return (
     <Paper
       component="aside"
@@ -327,7 +331,17 @@ export function Sidebar({
       <Divider />
 
       {/* Advanced — set-once vehicle & pricing config */}
-      <Accordion disableGutters square elevation={0} sx={{ bgcolor: 'transparent', '&::before': { display: 'none' } }}>
+      <Accordion
+        disableGutters
+        square
+        elevation={0}
+        expanded={advancedOpen}
+        onChange={(_, open) => {
+          setAdvancedOpen(open)
+          lsSet(LS_ADVANCED_OPEN, open)
+        }}
+        sx={{ bgcolor: 'transparent', '&::before': { display: 'none' } }}
+      >
         <AccordionSummary
           expandIcon={<ExpandMoreIcon fontSize="small" />}
           sx={{ px: 0, minHeight: 'auto', '& .MuiAccordionSummary-content': { my: 0.5 } }}

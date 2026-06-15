@@ -8,6 +8,7 @@ export const LS_SOLAR = 'ev_solar_v6'
 export const LS_GEO = 'ev_geo'
 export const LS_PARAMS = 'ev_params_v6'
 export const LS_NOTIFY = 'ev_notify'
+export const LS_ADVANCED_OPEN = 'ev_advanced_open'
 
 export function lsGet<T>(k: string): T | null {
   try {
