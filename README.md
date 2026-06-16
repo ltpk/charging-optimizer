@@ -7,7 +7,7 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 ## Features
 
 - **15-minute resolution** end to end: actual spot prices from [spot-hinta.fi](https://spot-hinta.fi) (today + tomorrow) are used at their native quarter-hour market-time-unit resolution, so the plan catches price dips inside an hour; [nordpool-predict-fi](https://github.com/vividfog/nordpool-predict-fi) ML forecasts (hourly) fill the uncovered hours as flat quarters
-- Optional solar production forecast from [Forecast.Solar](https://forecast.solar) — offsets charging cost when solar covers part of charging power
+- Optional solar production forecast from [Open-Meteo](https://open-meteo.com) — global tilted irradiance (GTI) for your panel tilt/azimuth, converted to PV output (`kWp × GTI/1000 × 0.85` performance ratio) to offset charging cost when solar covers part of charging power
 - Two optimization modes: cheapest **consecutive** block or cheapest **individual** 15-min slots — both account for the partially elapsed current slot (charging can start mid-slot; a slot with under ~4 minutes left is skipped)
 - Optional **charge-by deadline** — constrains the search window to complete charging before a given hour (e.g. by 07:00); warns when the deadline is too tight to reach the target SOC, or when it has already passed
 - Configurable battery capacity, charging loss, grid transfer fees, and buy/sell margins (Finnish VAT 25.5% applied correctly). Charging power is derived from a 1-/3-phase selection, charge current, and voltage, capped by the car's onboard charger; a read-only panel shows the resulting charging speed (%/hr), charging power, energy to battery, and (when there's loss) grid power and energy from grid
@@ -57,7 +57,7 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 ## Solar setup
 
 1. Click **Get GPS** to store your coordinates
-2. Set panel tilt, azimuth (compass degrees: 0 = N, 90 = E, 180 = S, 270 = W — converted automatically to Forecast.Solar's convention), and peak power (kWp)
+2. Set panel tilt, azimuth (compass degrees: 0 = N, 90 = E, 180 = S, 270 = W — converted automatically to Open-Meteo's 0 = S convention), and peak power (kWp)
 3. Click **Fetch solar forecast** — data is cached until midnight (changing location or panel parameters prompts a refetch)
 
 ## APIs used
@@ -67,4 +67,4 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 | `api.spot-hinta.fi/today`             | Actual spot prices, 15-min slots (VAT applied to the untaxed price locally) | Re-fetched until tomorrow's prices are available, then stable |
 | `api.spot-hinta.fi/dayforward`        | Tomorrow's prices (available ~14:15)                                        | Same                                                          |
 | `nordpool-predict-fi` prediction.json | Hourly ML forecast for unpriced hours                                       | 1 h TTL                                                       |
-| `api.forecast.solar`                  | Solar production estimate                                                   | Calendar day                                                  |
+| `api.open-meteo.com` GTI              | Global tilted irradiance → PV production estimate                           | Calendar day                                                  |

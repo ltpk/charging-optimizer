@@ -3,8 +3,8 @@ export const LS_COLOR_MODE = 'ev_color_mode'
 export const LS_SPOT = 'ev_spot_v5'
 // v6: spotCent computed from PriceNoTax × ALV (cached v5 values carry the pre-rounded PriceWithTax)
 export const LS_SPOT_ACTUAL = 'ev_spot_actual_v6'
-// v6: values are now per-hour averages (was: instantaneous watts at the hour start)
-export const LS_SOLAR = 'ev_solar_v6'
+// v7: per-hour average PV watts derived from Open-Meteo GTI (was: Forecast.Solar)
+export const LS_SOLAR = 'ev_solar_v7'
 export const LS_GEO = 'ev_geo'
 export const LS_PARAMS = 'ev_params_v6'
 export const LS_NOTIFY = 'ev_notify'

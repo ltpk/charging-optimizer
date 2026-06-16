@@ -179,7 +179,7 @@ export default function App() {
       setSolarStatus({ ok: false, warn: true, text: 'Fetch GPS location first' })
       return
     }
-    setSolarStatus({ ok: false, warn: false, text: 'Fetching Forecast.Solar...' })
+    setSolarStatus({ ok: false, warn: false, text: 'Fetching Open-Meteo...' })
     try {
       const data = await fetchSolarData(geoCoords, params)
       setSolarData(data)
@@ -272,7 +272,7 @@ export default function App() {
               {[
                 { label: 'spot-hinta.fi', href: 'https://spot-hinta.fi' },
                 { label: 'nordpool-predict-fi', href: 'https://github.com/vividfog/nordpool-predict-fi' },
-                { label: 'Forecast.Solar', href: 'https://forecast.solar' },
+                { label: 'Open-Meteo', href: 'https://open-meteo.com' },
                 { label: 'GitHub', href: 'https://github.com/ltpk/charging-optimizer' },
               ].map(({ label, href }, i, arr) => (
                 <span key={label}>

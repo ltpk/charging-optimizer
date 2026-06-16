@@ -41,7 +41,7 @@ src/
   utils/
     storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants; localDateStr() (local YYYY-MM-DD for daily cache keys)
     api.ts                 — fetchPrices(): merges spot-hinta.fi actual (native 15-min slots; spotCent = PriceNoTax × ALV, since the API's PriceWithTax is pre-rounded) + nordpool-predict-fi forecast (hourly, expanded into four flat quarters)
-    solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match). UI azimuth is compass convention (0=N 180=S); fetchSolarData converts to Forecast.Solar's 0=S convention (`solarAz - 180`) when building the URL, and integrates the API's instantaneous watts points (piecewise-linear) into per-hour averages
+    solar.ts               — fetchSolarData(), loadCachedSolar(), getSolarForDt(), solarCacheKey() (cache valid only while location+panel params match). Fetches Open-Meteo's hourly `global_tilted_irradiance` (GTI, W/m²) for the panel tilt/azimuth and converts each hour to PV watts via `solarKwp × GTI × PERFORMANCE_RATIO` (0.85). UI azimuth is compass convention (0=N 180=S); converted to Open-Meteo's 0=S (`solarAz - 180`). Open-Meteo radiation at timestamp T is the mean over the *preceding* hour [T-1h, T), so each value's key is shifted back one hour to match the app's hour-start convention
     optimization.ts        — calcNetCost(), isNightHour(), optimize(prices, solar, params, now=new Date()), SLOT_MS/SLOT_H/slotTs() — pure functions over 15-min slots, no React imports
     optimization.test.ts   — bun:test unit tests for the optimization core
   components/
@@ -55,7 +55,7 @@ src/
 ## Data flow
 
 1. `fetchPrices()` in `api.ts` fetches today + tomorrow from `spot-hinta.fi` at native 15-min resolution, fills uncovered hours from `nordpool-predict-fi` (1 h TTL; each hourly point expanded into four flat quarter slots). Actual prices override predictions for the same slot (keyed by `YYYY-MM-DDTHH:MM` UTC, `slotTs()`).
-2. Optionally `fetchSolarData()` fetches from `api.forecast.solar`. Timestamps are local browser time; converted to UTC keys on receipt.
+2. Optionally `fetchSolarData()` fetches GTI from `api.open-meteo.com` (`timezone=auto`, `forecast_days=2`) and converts to per-hour PV watts. Timestamps are location-local; parsed as browser-local and converted to UTC hour keys (shifted back 1 h for Open-Meteo's preceding-hour averaging).
 3. `App.tsx` passes `priceData`, `solarData`, `params`, and a clock-aligned `now` to `useMemo(() => optimize(...))`. `now` advances at 15-min slot granularity (a 60 s interval + `visibilitychange` listener that only bumps state when the clock crosses a `SLOT_MS` boundary) so the now-line, current-slot, and Go/Wait status stay correct without a data refresh. `optimize()` returns `OptimizeResult | null`.
 4. `App.tsx` re-runs `fetchPrices()` hourly on success, or after **5 min** when a fetch fails (or on demand via the sidebar refresh button). A failed refresh keeps the last good prices on screen (sidebar status dot turns amber); the full-screen error (with a Retry button) only appears if the _initial_ load fails. Manual refresh uses a `refreshRef` that exposes the inner `load()` closure so it shares the same `hasData` state.
 5. Solar cache validity is keyed on `solarCacheKey(coords, params)` (lat/lon + tilt/azimuth/kWp) in addition to the calendar date. Changing location or panel params mid-session flips the sidebar solar status to a "refetch forecast" warning (`fetchedSolarKeyRef` in App tracks the key of the last fetch).
@@ -92,7 +92,7 @@ calcNetCost(params, spotCent, hour, solarW):
 | ------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | `ev_spot_actual_v6` | spot-hinta.fi 15-min slot prices + `fetchedAt` timestamp                                   | Stale once the last slot has fully elapsed, or (no tomorrow data AND cache older than 1 h) |
 | `ev_spot_v5`        | nordpool-predict-fi forecast (expanded to 15-min slots)                                    | 1 h TTL (keyed on local date)                                                              |
-| `ev_solar_v6`       | Forecast.Solar per-hour average watts map + `key` (location/panel params)                  | Daily (local calendar date) or key mismatch                                                |
+| `ev_solar_v7`       | Open-Meteo GTI-derived per-hour PV watts map + `key` (location/panel params)               | Daily (local calendar date) or key mismatch                                                |
 | `ev_geo`            | `{ lat, lon }` strings                                                                     | Never (manual update)                                                                      |
 | `ev_params_v6`      | All `Params` fields incl. `solarEnabled`, `chargeByEnabled`, `chargeByHour`, `chargeByDay` | Never (persisted on every change)                                                          |
 | `ev_color_mode`     | `'light' \| 'dark' \| 'system'`                                                            | Never (persisted on every change)                                                          |

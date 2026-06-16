@@ -3,8 +3,12 @@ import type { GeoCoords, Params, SolarData } from '../types'
 
 type SolarParams = Pick<Params, 'solarDec' | 'solarAz' | 'solarKwp'>
 
-interface ForecastSolarResponse {
-  result?: { watts?: Record<string, number> }
+// performance ratio: PV system losses (inverter, temperature, wiring, soiling)
+// applied to the ideal kWp × irradiance output. 0.85 is a typical real-world value.
+const PERFORMANCE_RATIO = 0.85
+
+interface OpenMeteoResponse {
+  hourly?: { time?: string[]; global_tilted_irradiance?: number[] }
 }
 
 // identifies the location + panel setup a forecast was fetched for — a cached
@@ -27,36 +31,31 @@ export function loadCachedSolar(coords: GeoCoords | null, params: SolarParams): 
 export async function fetchSolarData(coords: GeoCoords, params: SolarParams): Promise<SolarData> {
   const { lat, lon } = coords
   const { solarDec, solarAz, solarKwp } = params
-  // UI azimuth is compass convention (0=N 90=E 180=S 270=W); Forecast.Solar wants -180…180 with 0=S
+  // UI azimuth is compass convention (0=N 90=E 180=S 270=W); Open-Meteo wants 0=S, -90=E, 90=W
   const apiAz = solarAz - 180
-  const url = `https://api.forecast.solar/estimate/${lat}/${lon}/${solarDec}/${apiAz}/${solarKwp}`
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&hourly=global_tilted_irradiance&tilt=${solarDec}&azimuth=${apiAz}` +
+    `&timezone=auto&forecast_days=2`
 
   const res = await fetch(url)
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const json = (await res.json()) as ForecastSolarResponse
+  const json = (await res.json()) as OpenMeteoResponse
 
-  // the API's watts values are instantaneous power at each timestamp (sunrise, top of hour,
-  // sunset) — integrate the piecewise-linear curve into per-hour averages so an hour's value
-  // is the energy actually produced in it, not the power at its first instant
-  const pts = Object.entries(json.result?.watts ?? {})
-    .map(([ts, w]) => ({ t: new Date(ts.replace(' ', 'T')).getTime(), w }))
-    .filter(p => !isNaN(p.t))
-    .sort((a, b) => a.t - b.t)
+  const times = json.hourly?.time ?? []
+  const gti = json.hourly?.global_tilted_irradiance ?? []
 
   const data: SolarData = {}
-  for (let i = 0; i + 1 < pts.length; i++) {
-    const a = pts[i]
-    const b = pts[i + 1]
-    if (b.t <= a.t || (a.w === 0 && b.w === 0)) continue
-    const slope = (b.w - a.w) / (b.t - a.t)
-    for (let hour = Math.floor(a.t / 3_600_000) * 3_600_000; hour < b.t; hour += 3_600_000) {
-      const s = Math.max(a.t, hour)
-      const e = Math.min(b.t, hour + 3_600_000)
-      if (e <= s) continue
-      const avgW = a.w + slope * ((s + e) / 2 - a.t)
-      const key = new Date(hour).toISOString().slice(0, 13)
-      data[key] = (data[key] ?? 0) + (avgW * (e - s)) / 3_600_000
-    }
+  for (let i = 0; i < times.length; i++) {
+    const g = gti[i]
+    if (g == null || g <= 0) continue
+    // Open-Meteo radiation at timestamp T is the mean over the preceding hour [T-1h, T);
+    // the app keys each hour by its start, so shift the label back one hour
+    const start = new Date(times[i].replace(' ', 'T'))
+    start.setHours(start.getHours() - 1)
+    // ideal output kWp × (GTI / 1000) in kW → watts, derated by the performance ratio
+    const watts = solarKwp * g * PERFORMANCE_RATIO
+    data[start.toISOString().slice(0, 13)] = watts
   }
 
   lsSet(LS_SOLAR, { date: localDateStr(), key: solarCacheKey(coords, params), data })
