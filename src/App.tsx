@@ -8,8 +8,8 @@ import {
   Drawer,
   AppBar,
   Toolbar,
-  ToggleButtonGroup,
-  ToggleButton,
+  IconButton,
+  Tooltip,
   ThemeProvider,
   CssBaseline,
   useMediaQuery,
@@ -53,10 +53,12 @@ export default function App() {
   )
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'))
 
-  const handleColorMode = useCallback((_: unknown, v: ColorMode | null) => {
-    if (!v) return
-    setColorMode(v)
-    lsSet(LS_COLOR_MODE, v)
+  const cycleColorMode = useCallback(() => {
+    setColorMode(prev => {
+      const next: ColorMode = prev === 'system' ? 'light' : prev === 'light' ? 'dark' : 'system'
+      lsSet(LS_COLOR_MODE, next)
+      return next
+    })
   }, [])
 
   const [params, setParams] = useState<Params>(storedParams)
@@ -279,17 +281,17 @@ export default function App() {
               ))}
             </Typography>
             <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ToggleButtonGroup value={colorMode} exclusive onChange={handleColorMode} size="small">
-                <ToggleButton value="light" aria-label="Light mode">
-                  <LightModeIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="system" aria-label="System mode">
-                  <SettingsBrightnessIcon fontSize="small" />
-                </ToggleButton>
-                <ToggleButton value="dark" aria-label="Dark mode">
-                  <DarkModeIcon fontSize="small" />
-                </ToggleButton>
-              </ToggleButtonGroup>
+              <Tooltip title={`Theme: ${colorMode} (click to change)`}>
+                <IconButton onClick={cycleColorMode} size="small" aria-label={`Theme: ${colorMode}`}>
+                  {colorMode === 'light' ? (
+                    <LightModeIcon fontSize="small" />
+                  ) : colorMode === 'dark' ? (
+                    <DarkModeIcon fontSize="small" />
+                  ) : (
+                    <SettingsBrightnessIcon fontSize="small" />
+                  )}
+                </IconButton>
+              </Tooltip>
               <Button
                 size="small"
                 variant={sidebarOpen ? 'contained' : 'outlined'}

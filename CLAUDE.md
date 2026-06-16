@@ -37,7 +37,7 @@ No environment variables needed. Tests cover the pure optimization core only (`b
 src/
   types.ts                 — shared interfaces: PriceEntry (one 15-min slot; `ts` = UTC quarter key YYYY-MM-DDTHH:MM), SlotEntry, Params, OptimizeResult, SolarData, GeoCoords, ApiStatus
   main.tsx                 — React entry, ErrorBoundary (ThemeProvider lives in App.tsx)
-  App.tsx                  — colorMode state + ThemeProvider, all data fetching, layout; result computed via useMemo(optimize(...))
+  App.tsx                  — colorMode state + ThemeProvider, all data fetching, layout; result computed via useMemo(optimize(...)). Theme control is a single AppBar IconButton (cycleColorMode) that cycles system → light → dark, persisted to ev_color_mode
   utils/
     storage.ts             — lsGet<T> / lsSet wrappers; localStorage key constants; localDateStr() (local YYYY-MM-DD for daily cache keys)
     api.ts                 — fetchPrices(): merges spot-hinta.fi actual (native 15-min slots; spotCent = PriceNoTax × ALV, since the API's PriceWithTax is pre-rounded) + nordpool-predict-fi forecast (hourly, expanded into four flat quarters)
