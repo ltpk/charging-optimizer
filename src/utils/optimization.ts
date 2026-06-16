@@ -18,6 +18,10 @@ export const DEFAULT_PARAMS: Params = {
   socTarget: 80,
   batteryCapacity: 77,
   chargingLoss: 10,
+  phases: 3,
+  amperage: 16,
+  voltage: 230,
+  chargerCap: 11,
   chargingPower: 11,
   consecutive: true,
   horizonH: 24,
@@ -41,6 +45,35 @@ function calcHours(p: Params): number {
   const energyToCharge = ((p.socTarget - p.socNow) / 100) * p.batteryCapacity
   const gridEnergy = energyToCharge / (1 - p.chargingLoss / 100)
   return Math.max(0, gridEnergy / p.chargingPower)
+}
+
+// grid power (kW the meter sees) from electrical params, capped by the onboard charger
+export function gridPower(p: Params): number {
+  const outlet = (p.phases * p.amperage * p.voltage) / 1000
+  return p.chargerCap > 0 ? Math.min(outlet, p.chargerCap) : outlet
+}
+
+// read-only charging specs derived purely from the vehicle/charger config
+export interface ChargeSpecs {
+  gridPower: number // kW drawn from grid
+  chargingPower: number // kW reaching the battery (grid × efficiency)
+  chargingSpeed: number // % of battery per hour
+  energyToBattery: number // kWh stored
+  energyFromGrid: number // kWh drawn from grid
+}
+
+export function chargeSpecs(p: Params): ChargeSpecs {
+  const grid = gridPower(p)
+  const efficiency = 1 - p.chargingLoss / 100
+  const charging = grid * efficiency
+  const energyToBattery = (Math.max(0, p.socTarget - p.socNow) / 100) * p.batteryCapacity
+  return {
+    gridPower: grid,
+    chargingPower: charging,
+    chargingSpeed: p.batteryCapacity > 0 ? (charging / p.batteryCapacity) * 100 : 0,
+    energyToBattery,
+    energyFromGrid: efficiency > 0 ? energyToBattery / efficiency : 0,
+  }
 }
 
 export function isNightHour(hour: number): boolean {

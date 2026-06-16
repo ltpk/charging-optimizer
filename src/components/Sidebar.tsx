@@ -23,6 +23,7 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import { lsGet, lsSet, LS_ADVANCED_OPEN } from '../utils/storage'
+import { chargeSpecs } from '../utils/optimization'
 import type { Params, GeoCoords, ApiStatus } from '../types'
 
 // ── helpers ────────────────────────────────────────────────────
@@ -131,6 +132,46 @@ function FieldLabel({ children, info }: { children: string; info?: string }) {
       {children}
       {info && <InfoTip text={info} />}
     </Typography>
+  )
+}
+
+// read-only charging metrics derived from the vehicle/charger config
+function SpecRow({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="caption" sx={{ fontWeight: 600, textAlign: 'right' }}>
+        {value}
+      </Typography>
+    </>
+  )
+}
+
+function ChargeSpecs({ params }: { params: Params }) {
+  const specs = chargeSpecs(params)
+  const showGrid = params.chargingLoss > 0
+  return (
+    <Box
+      sx={{
+        mt: 0.5,
+        p: 1.25,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 1,
+        display: 'grid',
+        gridTemplateColumns: '1fr auto',
+        rowGap: 0.5,
+        columnGap: 1.5,
+      }}
+    >
+      <SpecRow label="Charging speed" value={`${specs.chargingSpeed.toFixed(1)} % / hr`} />
+      <SpecRow label="Charging power" value={`${specs.chargingPower.toFixed(1)} kW`} />
+      {showGrid && <SpecRow label="Grid power" value={`${specs.gridPower.toFixed(1)} kW`} />}
+      <SpecRow label="Energy to battery" value={`${specs.energyToBattery.toFixed(1)} kWh`} />
+      {showGrid && <SpecRow label="Energy from grid" value={`${specs.energyFromGrid.toFixed(1)} kWh`} />}
+    </Box>
   )
 }
 
@@ -363,20 +404,59 @@ export function Sidebar({
                 onCommit={p('batteryCapacity')}
               />
               <NumField
+                label="Onboard charger (kW)"
+                info="Your car's max AC charging power — caps the grid power regardless of the outlet."
+                value={params.chargerCap}
+                step={0.5}
+                min={1}
+                max={22}
+                onCommit={p('chargerCap')}
+              />
+              <Box>
+                <FieldLabel info="Single-phase or three-phase AC supply. Grid power = phases × current × voltage.">
+                  Phases
+                </FieldLabel>
+                <ToggleButtonGroup
+                  value={params.phases}
+                  exclusive
+                  fullWidth
+                  size="small"
+                  onChange={(_, v: number | null) => {
+                    if (v != null) onParamChange('phases', v)
+                  }}
+                >
+                  <ToggleButton value={1}>1-phase</ToggleButton>
+                  <ToggleButton value={3}>3-phase</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25 }}>
+                <NumField
+                  label="Current (A)"
+                  info="Charge current per phase."
+                  value={params.amperage}
+                  step={1}
+                  min={0}
+                  max={32}
+                  onCommit={p('amperage')}
+                />
+                <NumField
+                  label="Voltage (V)"
+                  info="Grid voltage — usually 230 V in Finland."
+                  value={params.voltage}
+                  step={1}
+                  min={100}
+                  max={400}
+                  onCommit={p('voltage')}
+                />
+              </Box>
+              <NumField
                 label="Charging loss (%)"
                 info="Energy lost as heat etc. — grid draw exceeds energy stored. Typically 5–15%."
                 value={params.chargingLoss}
                 step={1}
                 onCommit={p('chargingLoss')}
               />
-              <NumField
-                label="Charging power (kW)"
-                info="Charging speed at your charger/connector."
-                value={params.chargingPower}
-                step={0.1}
-                min={0.1}
-                onCommit={p('chargingPower')}
-              />
+              <ChargeSpecs params={params} />
             </Box>
           </Box>
 

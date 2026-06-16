@@ -25,13 +25,15 @@ import { HourList } from './components/HourList'
 import { PriceChart } from './components/PriceChart'
 import { fetchPrices } from './utils/api'
 import { fetchSolarData, loadCachedSolar, solarCacheKey } from './utils/solar'
-import { optimize, getTransfer, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
+import { optimize, getTransfer, gridPower, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
 import { lsGet, lsSet, LS_PARAMS, LS_GEO, LS_COLOR_MODE, LS_NOTIFY } from './utils/storage'
 import type { Params, PriceEntry, SolarData, GeoCoords, ApiStatus, OptimizeResult } from './types'
 
 type ColorMode = 'light' | 'dark' | 'system'
 
-const storedParams: Params = { ...DEFAULT_PARAMS, ...(lsGet<Partial<Params>>(LS_PARAMS) ?? {}) }
+const mergedParams: Params = { ...DEFAULT_PARAMS, ...(lsGet<Partial<Params>>(LS_PARAMS) ?? {}) }
+// chargingPower is derived from the electrical inputs — heal any stale stored value on load
+const storedParams: Params = { ...mergedParams, chargingPower: gridPower(mergedParams) }
 const storedGeo = lsGet<GeoCoords>(LS_GEO)
 const cachedSolar = loadCachedSolar(storedGeo, storedParams)
 
@@ -150,7 +152,14 @@ export default function App() {
   const handleRefreshPrices = useCallback(() => refreshRef.current(), [])
 
   const onParamChange = useCallback(<K extends keyof Params>(key: K, value: Params[K]) => {
-    setParams(p => ({ ...p, [key]: value }))
+    setParams(p => {
+      const next = { ...p, [key]: value }
+      // grid power is derived; keep it in sync when an electrical input changes
+      if (key === 'phases' || key === 'amperage' || key === 'voltage' || key === 'chargerCap') {
+        next.chargingPower = gridPower(next)
+      }
+      return next
+    })
   }, [])
 
   const handleGetGeo = useCallback(() => {

@@ -30,7 +30,11 @@ export interface Params {
   socTarget: number
   batteryCapacity: number
   chargingLoss: number // stored as percent (e.g. 11 means 11%)
-  chargingPower: number
+  phases: number // 1 or 3
+  amperage: number // charge current per phase (A)
+  voltage: number // grid voltage (V)
+  chargerCap: number // onboard charger limit (kW)
+  chargingPower: number // derived grid power = min(phases × amperage × voltage / 1000, chargerCap)
   consecutive: boolean
   horizonH: number
   chargeByEnabled: boolean
