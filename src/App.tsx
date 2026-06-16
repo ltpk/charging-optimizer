@@ -8,7 +8,6 @@ import {
   Drawer,
   AppBar,
   Toolbar,
-  IconButton,
   Tooltip,
   ThemeProvider,
   CssBaseline,
@@ -282,7 +281,13 @@ export default function App() {
             </Typography>
             <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
               <Tooltip title={`Theme: ${colorMode} (click to change)`}>
-                <IconButton onClick={cycleColorMode} size="small" aria-label={`Theme: ${colorMode}`}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={cycleColorMode}
+                  aria-label={`Theme: ${colorMode}`}
+                  sx={{ minWidth: 0, px: { xs: '5px', sm: 1.5 } }}
+                >
                   {colorMode === 'light' ? (
                     <LightModeIcon fontSize="small" />
                   ) : colorMode === 'dark' ? (
@@ -290,7 +295,7 @@ export default function App() {
                   ) : (
                     <SettingsBrightnessIcon fontSize="small" />
                   )}
-                </IconButton>
+                </Button>
               </Tooltip>
               <Button
                 size="small"
