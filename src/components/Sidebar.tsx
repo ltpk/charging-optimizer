@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import {
   Box,
   Divider,
@@ -95,6 +95,13 @@ interface NumFieldProps {
 
 function NumField({ label, value, step, min, max, onCommit, info }: NumFieldProps) {
   const id = useId()
+  // controlled by local text so each keystroke commits live (updating every derived value)
+  // without remounting and dropping focus; the raw string keeps partial input ("", "1.", "-") usable
+  const [text, setText] = useState(String(value))
+  // re-sync only when the value changes from outside (e.g. localStorage restore), never mid-typing
+  useEffect(() => {
+    if (parseFloat(text) !== value) setText(String(value))
+  }, [value]) // depend only on `value` — re-syncing on `text` would clobber mid-typing
   return (
     <Box>
       <Typography
@@ -111,17 +118,46 @@ function NumField({ label, value, step, min, max, onCommit, info }: NumFieldProp
       <TextField
         id={id}
         type="number"
-        defaultValue={value}
-        key={value} // force re-mount when value changes externally (e.g. localStorage restore)
+        value={text}
         slotProps={{ htmlInput: { step, min, max } }}
         size="small"
         fullWidth
-        onBlur={e => {
+        onChange={e => {
+          setText(e.target.value)
           const v = parseFloat(e.target.value)
           if (!isNaN(v)) onCommit(v)
         }}
+        onBlur={() => {
+          if (isNaN(parseFloat(text))) setText(String(value)) // revert an empty/invalid field
+        }}
       />
     </Box>
+  )
+}
+
+// small live-committing integer field (0–23) for the charge-by deadline hour
+function HourField({ value, onCommit }: { value: number; onCommit: (v: number) => void }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => {
+    if (parseInt(text) !== value) setText(String(value))
+  }, [value]) // depend only on `value` — re-syncing on `text` would clobber mid-typing
+  return (
+    <TextField
+      type="number"
+      value={text}
+      slotProps={{ htmlInput: { min: 0, max: 23, step: 1 } }}
+      size="small"
+      sx={{ width: 60 }}
+      onChange={e => {
+        setText(e.target.value)
+        const v = parseInt(e.target.value)
+        if (!isNaN(v) && v >= 0 && v <= 23) onCommit(v)
+      }}
+      onBlur={() => {
+        const v = parseInt(text)
+        if (isNaN(v) || v < 0 || v > 23) setText(String(value))
+      }}
+    />
   )
 }
 
@@ -347,18 +383,7 @@ export function Sidebar({
                   <ToggleButton value={2}>+2d</ToggleButton>
                 </ToggleButtonGroup>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <TextField
-                    type="number"
-                    defaultValue={params.chargeByHour}
-                    key={params.chargeByHour}
-                    slotProps={{ htmlInput: { min: 0, max: 23, step: 1 } }}
-                    size="small"
-                    sx={{ width: 60 }}
-                    onBlur={e => {
-                      const v = parseInt(e.target.value)
-                      if (!isNaN(v) && v >= 0 && v <= 23) onParamChange('chargeByHour', v)
-                    }}
-                  />
+                  <HourField value={params.chargeByHour} onCommit={v => onParamChange('chargeByHour', v)} />
                   <Typography variant="body2" color="text.secondary">
                     :00
                   </Typography>
