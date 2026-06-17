@@ -80,7 +80,10 @@ export function Metrics({
   const nowSub = transferEnabled ? [`transfer ${transferNow.toFixed(2)} c/kWh`] : []
   if (solarEnabled) nowSub.push(`solar ${Math.round(solarNow)} W`)
   const costSub = [`avg ${avgNetCost.toFixed(1)} c/kWh`]
-  if (savingsVsNow >= 0.005) costSub.push(`saves ${savingsVsNow.toFixed(2)} € vs now`)
+  if (savingsVsNow >= 0.005) {
+    const savingsPct = (savingsVsNow / (totalCost + savingsVsNow)) * 100
+    costSub.push(`saves ${savingsVsNow.toFixed(2)} € (${savingsPct.toFixed(0)} %) vs now`)
+  }
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 1.5 }}>
       <Metric label="Charge plan" value={hoursNeeded.toFixed(1)} unit="h" sub={neededSub} />
