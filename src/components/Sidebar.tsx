@@ -22,6 +22,7 @@ import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import { lsGet, lsSet, LS_ADVANCED_OPEN } from '../utils/storage'
 import { chargeSpecs } from '../utils/optimization'
 import type { Params, GeoCoords, ApiStatus } from '../types'
@@ -231,6 +232,7 @@ function StatusDot({ ok, warn }: { ok: boolean; warn: boolean }) {
 interface Props {
   params: Params
   onParamChange: <K extends keyof Params>(key: K, value: Params[K]) => void
+  onResetParams: () => void
   geoCoords: GeoCoords | null
   onGetGeo: () => void
   onFetchSolar: () => void
@@ -244,6 +246,7 @@ interface Props {
 export function Sidebar({
   params,
   onParamChange,
+  onResetParams,
   geoCoords,
   onGetGeo,
   onFetchSolar,
@@ -667,6 +670,17 @@ export function Sidebar({
               </Box>
             )}
           </Box>
+
+          <Button
+            variant="text"
+            size="small"
+            color="inherit"
+            startIcon={<RestartAltIcon sx={{ fontSize: 16 }} />}
+            onClick={onResetParams}
+            sx={{ alignSelf: 'flex-start', mt: 0.5, color: 'text.secondary' }}
+          >
+            Restore defaults
+          </Button>
         </AccordionDetails>
       </Accordion>
 

@@ -162,6 +162,10 @@ export default function App() {
     })
   }, [])
 
+  const handleResetParams = useCallback(() => {
+    setParams({ ...DEFAULT_PARAMS, chargingPower: gridPower(DEFAULT_PARAMS) })
+  }, [])
+
   const handleGetGeo = useCallback(() => {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(pos => {
@@ -235,6 +239,7 @@ export default function App() {
     <Sidebar
       params={params}
       onParamChange={onParamChange}
+      onResetParams={handleResetParams}
       geoCoords={geoCoords}
       onGetGeo={handleGetGeo}
       onFetchSolar={handleFetchSolar}
