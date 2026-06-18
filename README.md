@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/ltpk/charging-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/ltpk/charging-optimizer/actions/workflows/ci.yml)
 [![Deploy to GitHub Pages](https://github.com/ltpk/charging-optimizer/actions/workflows/deploy.yml/badge.svg)](https://github.com/ltpk/charging-optimizer/actions/workflows/deploy.yml)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev)
-[![Bun](https://img.shields.io/badge/Bun-1-000000?logo=bun&logoColor=white)](https://bun.sh)
+[![React](https://img.shields.io/github/package-json/dependency-version/ltpk/charging-optimizer/react?logo=react&logoColor=white&label=React&color=61DAFB)](https://react.dev)
+[![TypeScript](https://img.shields.io/github/package-json/dependency-version/ltpk/charging-optimizer/dev/typescript?logo=typescript&logoColor=white&label=TypeScript&color=3178C6)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/github/package-json/dependency-version/ltpk/charging-optimizer/dev/vite?logo=vite&logoColor=white&label=Vite&color=646CFF)](https://vite.dev)
+[![Bun](https://img.shields.io/github/package-json/dependency-version/ltpk/charging-optimizer/dev/@types/bun?logo=bun&logoColor=white&label=Bun&color=000000)](https://bun.sh)
 
 **Live: https://ltpk.github.io/charging-optimizer/**
 
