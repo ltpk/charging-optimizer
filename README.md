@@ -1,5 +1,12 @@
 # EV Charging Optimizer
 
+[![CI](https://github.com/ltpk/charging-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/ltpk/charging-optimizer/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/ltpk/charging-optimizer/actions/workflows/deploy.yml/badge.svg)](https://github.com/ltpk/charging-optimizer/actions/workflows/deploy.yml)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)](https://vite.dev)
+[![Bun](https://img.shields.io/badge/Bun-1-000000?logo=bun&logoColor=white)](https://bun.sh)
+
 **Live: https://ltpk.github.io/charging-optimizer/**
 
 Finds the cheapest hours to charge an EV based on Finnish electricity spot prices, with optional solar production offset. Built for personal use.
