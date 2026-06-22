@@ -38,6 +38,8 @@ bun run typecheck # tsc --noEmit
 bun test          # unit tests for the optimization core
 ```
 
+The price chart (Chart.js) is lazy-loaded via `React.lazy`/`Suspense`, so it splits into its own bundle chunk (~59 kB gzip) and loads after first paint instead of blocking the initial load.
+
 Commits run a Husky pre-commit hook: Prettier (via lint-staged on staged files), then `bun run typecheck`, then `bun test`.
 
 No environment variables or API keys required — all APIs are public.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react'
 import {
   Box,
   Typography,
@@ -22,7 +22,8 @@ import { Sidebar } from './components/Sidebar'
 import { StatusCard } from './components/StatusCard'
 import { Metrics } from './components/Metrics'
 import { HourList } from './components/HourList'
-import { PriceChart } from './components/PriceChart'
+// Chart.js (~39 kB gzip) is the heaviest non-MUI dep; defer it so it loads after first paint
+const PriceChart = lazy(() => import('./components/PriceChart').then(m => ({ default: m.PriceChart })))
 import { fetchPrices } from './utils/api'
 import { fetchSolarData, loadCachedSolar, solarCacheKey } from './utils/solar'
 import { optimize, getTransfer, gridPower, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
@@ -429,14 +430,32 @@ export default function App() {
                     netCostMax={result.netCostMax}
                     currentTs={result.currentSlot.ts}
                   />
-                  <PriceChart
-                    slots={result.slots}
-                    selectedTs={result.selectedTs}
-                    nowIdx={result.nowIdx}
-                    slotSources={result.slotSources}
-                    horizonH={params.horizonH}
-                    params={params}
-                  />
+                  <Suspense
+                    fallback={
+                      <Box
+                        sx={{
+                          height: 281,
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <CircularProgress size={24} />
+                      </Box>
+                    }
+                  >
+                    <PriceChart
+                      slots={result.slots}
+                      selectedTs={result.selectedTs}
+                      nowIdx={result.nowIdx}
+                      slotSources={result.slotSources}
+                      horizonH={params.horizonH}
+                      params={params}
+                    />
+                  </Suspense>
                 </Box>
               </>
             )}
