@@ -76,7 +76,12 @@ export function Metrics({
     : null
   const neededSub = [`${nHours} h rounded · ${kWhNeeded.toFixed(1)} kWh`]
   if (doneBy) neededSub.push(doneBy)
-  if (solarEnabled) neededSub.push(`solar covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} €`)
+  if (solarEnabled) {
+    const solarPctSaved = solarSavings > 0 ? (solarSavings / (totalCost + solarSavings)) * 100 : 0
+    neededSub.push(
+      `solar covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} € (${solarPctSaved.toFixed(0)} %)`,
+    )
+  }
   const nowSub = transferEnabled ? [`transfer ${transferNow.toFixed(2)} c/kWh`] : []
   if (solarEnabled) nowSub.push(`solar ${Math.round(solarNow)} W`)
   const costSub = [`avg ${avgNetCost.toFixed(1)} c/kWh`]
