@@ -2,6 +2,11 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Typography, Box } from '@mui/material'
 import App from './App'
+import { prewarmPrices } from './utils/api'
+
+// start the price fetch immediately so the network round-trip overlaps with React/MUI
+// parse + first render, instead of only starting in App's mount effect
+prewarmPrices()
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null }

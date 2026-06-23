@@ -96,7 +96,21 @@ export interface FetchPricesResult {
   statusText: string
 }
 
-export async function fetchPrices(): Promise<FetchPricesResult> {
+let prewarmed: Promise<FetchPricesResult> | null = null
+
+// kick off the price round-trip before React mounts so the network overlaps with bundle
+// parse/execute; the first fetchPrices() reuses it instead of starting a fresh request
+export function prewarmPrices(): void {
+  prewarmed ??= runFetchPrices()
+}
+
+export function fetchPrices(): Promise<FetchPricesResult> {
+  const p = prewarmed ?? runFetchPrices()
+  prewarmed = null
+  return p
+}
+
+async function runFetchPrices(): Promise<FetchPricesResult> {
   const [actualResult, predictResult] = await Promise.allSettled([fetchActualSpot(), fetchPredict()])
 
   const actual = actualResult.status === 'fulfilled' ? actualResult.value : []
