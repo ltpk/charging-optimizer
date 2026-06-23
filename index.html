@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EV Charging Optimizer</title>
+    <!-- inline SVG favicon (lightning bolt) — no extra request, and no path resolution to break under the Pages subpath -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232e7d32'/><path d='M17.5 3 L7 18 h6.5 l-2.5 11 13.5-17 H18 z' fill='%23fff'/></svg>"
+    />
     <!-- warm up connections to the data sources so the first fetch isn't gated on a cold TLS handshake -->
     <link rel="preconnect" href="https://api.spot-hinta.fi" crossorigin />
     <link rel="dns-prefetch" href="https://raw.githubusercontent.com" />

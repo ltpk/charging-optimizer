@@ -38,7 +38,7 @@ bun run typecheck # tsc --noEmit
 bun test          # unit tests for the optimization core
 ```
 
-Performance: the price chart (Chart.js) is lazy-loaded via `React.lazy`/`Suspense`, so it splits into its own bundle chunk (~58 kB gzip) and loads after first paint instead of blocking the initial load. React and MUI are split into their own vendor chunks (`vite.config.ts` `manualChunks`) so they stay cached across deploys while only the small app chunk re-downloads. The price fetch is kicked off at module load (`prewarmPrices()` in `main.tsx`) so the network round-trip overlaps with bundle parse/execute, and `index.html` preconnects to the spot-price API.
+Performance: the price chart (Chart.js) is lazy-loaded via `React.lazy`/`Suspense`, so it splits into its own bundle chunk (~58 kB gzip) and loads after first paint instead of blocking the initial load. React and MUI are split into their own vendor chunks (`vite.config.ts` `manualChunks`) so they stay cached across deploys while only the small app chunk re-downloads. The price fetch is kicked off at module load (`prewarmPrices()` in `main.tsx`) so the network round-trip overlaps with bundle parse/execute, and `index.html` preconnects to the spot-price API. The favicon is an inline SVG data-URI (lightning bolt) in `index.html` — no extra request and no path to break under the Pages subpath.
 
 Commits run a Husky pre-commit hook: Prettier (via lint-staged on staged files), then `bun run typecheck`, then `bun test`.
 

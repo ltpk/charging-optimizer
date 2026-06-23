@@ -36,6 +36,7 @@ No environment variables needed. Tests cover the pure optimization core only (`b
 ```
 src/
   types.ts                 — shared interfaces: PriceEntry (one 15-min slot; `ts` = UTC quarter key YYYY-MM-DDTHH:MM), SlotEntry, Params, OptimizeResult, SolarData, GeoCoords, ApiStatus
+  (index.html)             — favicon is an inline SVG data-URI (lightning bolt); inlined so there's no extra request and no path to break under the GitHub Pages subpath
   main.tsx                 — React entry, ErrorBoundary (ThemeProvider lives in App.tsx); calls `prewarmPrices()` at module load so the price fetch's network round-trip overlaps with React/MUI parse + first render (App's load effect then reuses the in-flight promise)
   App.tsx                  — colorMode state + ThemeProvider, all data fetching, layout; result computed via useMemo(optimize(...)). Theme control is a single AppBar IconButton (cycleColorMode) that cycles system → light → dark, persisted to ev_color_mode. `PriceChart` is loaded via `React.lazy` (a `.then(m => ({ default: m.PriceChart }))` adapter for the named export) inside `<Suspense>` with a fixed-height spinner fallback, so Chart.js + react-chartjs-2 (~58 kB gzip) split into their own chunk and load after first paint instead of blocking it. React and MUI/emotion are also split into stable vendor chunks via `vite.config.ts` `manualChunks` (function form — Rolldown rejects the object form), leaving the app code as a ~12 kB chunk so repeat visitors only re-download that after a deploy
   utils/
