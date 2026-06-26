@@ -30,17 +30,19 @@ function parsePredict(raw: [number, number][]): PriceEntry[] {
 
 async function fetchActualSpot(): Promise<PriceEntry[]> {
   const cached = lsGet<{ data: StoredEntry[]; fetchedAt: number }>(LS_SPOT_ACTUAL)
-  if (cached?.data?.length) {
-    const lastDt = new Date(cached.data[cached.data.length - 1].dtIso)
+  const cachedData = cached?.data?.length ? cached.data.map(d => ({ ...d, dt: new Date(d.dtIso) })) : null
+  if (cachedData) {
+    const lastDt = cachedData[cachedData.length - 1].dt
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
     tomorrow.setHours(0, 0, 0, 0)
-    const cacheAge = Date.now() - (cached.fetchedAt ?? 0)
     const hasTomorrow = lastDt >= tomorrow
     const lastSlotActive = lastDt.getTime() + SLOT_MS > Date.now() // last slot not yet fully elapsed
-    // keep cache if it covers tomorrow OR was fetched less than 1 h ago
-    if ((hasTomorrow || cacheAge < 3_600_000) && lastSlotActive)
-      return cached.data.map(d => ({ ...d, dt: new Date(d.dtIso) }))
+    // Once the cache covers tomorrow it's the full day-ahead set — serve it and stop polling.
+    // Until then, always refetch so tomorrow's prices appear as soon as spot-hinta publishes them
+    // (~14:00 EET): the old `cacheAge < 1 h` guard kept serving the today-only cache for up to an
+    // hour past publication — and since the manual refresh runs through here too, refresh was a no-op.
+    if (hasTomorrow && lastSlotActive) return cachedData
   }
 
   const [todayRes, forwardRes] = await Promise.allSettled([
@@ -70,6 +72,9 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
     })
 
   const data = [...slotMap.values()].sort((a, b) => a.dt.getTime() - b.dt.getTime())
+
+  // a failed/empty fetch must not overwrite a good cache — fall back to it (keeps last prices on screen)
+  if (!data.length) return cachedData ?? []
 
   lsSet(LS_SPOT_ACTUAL, { fetchedAt: Date.now(), data: data.map(d => ({ ...d, dtIso: d.dt.toISOString() })) })
   return data
