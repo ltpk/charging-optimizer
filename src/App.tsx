@@ -94,13 +94,28 @@ export default function App() {
         const next = new Date()
         return Math.floor(next.getTime() / SLOT_MS) !== Math.floor(prev.getTime() / SLOT_MS) ? next : prev
       })
-    const id = setInterval(tick, 60_000)
+    // fire right at the next slot boundary (not on an arbitrary 60s cadence) so the Go/Wait
+    // status and charge-now notification flip the instant the window starts, not up to a minute late
+    let id: ReturnType<typeof setTimeout>
+    const schedule = () => {
+      const nowMs = Date.now()
+      const untilBoundary = SLOT_MS - (nowMs % SLOT_MS)
+      id = setTimeout(() => {
+        tick()
+        schedule()
+      }, untilBoundary + 50) // small buffer so we're safely past the boundary
+    }
+    schedule()
     const onVisible = () => {
-      if (!document.hidden) tick()
+      if (!document.hidden) {
+        clearTimeout(id)
+        tick()
+        schedule()
+      }
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      clearInterval(id)
+      clearTimeout(id)
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])
