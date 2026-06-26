@@ -100,9 +100,11 @@ function slotCapacity(dt: Date, now: Date): number {
 
 export function calcNetCost(p: Params, spotCent: number, hour: number, solarW: number): number {
   const share = solarShare(p, solarW)
+  // grid pays for the non-solar fraction; the solar fraction is "free" energy but carries the
+  // opportunity cost of the export revenue you forgo by self-consuming it (added, not subtracted)
   const buyPrice = (1 - share) * (spotCent + getTransfer(p, hour) + p.buyMargin * ALV)
   const sellPrice = Math.max(0, spotCent / ALV - p.sellMargin)
-  return buyPrice - share * sellPrice
+  return buyPrice + share * sellPrice
 }
 
 export function optimize(

@@ -70,8 +70,10 @@ calcNetCost(params, spotCent, hour, solarW):
   solarShare = min(solarW / (chargingPower * 1000), 1.0)   # 0 when solarEnabled=false
   buyPrice   = (1 - solarShare) * (spot + transferFee + buyMargin * 1.255)
   sellPrice  = max(0, spot / 1.255 - sellMargin)
-  return buyPrice - solarShare * sellPrice
+  return buyPrice + solarShare * sellPrice
 ```
+
+`netCost` is the **economic** marginal cost of charging in a slot: the grid pays for the non-solar fraction (`buyPrice`), and the solar fraction is self-consumed "free" energy that nonetheless carries the **opportunity cost** of the export revenue you forgo (`+ solarShare × sellPrice`). The sell term is **added**, not subtracted — subtracting it (the old bug) made high-solar daytime slots look artificially cheap, even net-negative, so the optimizer would pick an expensive daytime "now" over far cheaper night slots. Consequently `solarSavings` (grid-only cost − actual cost) correctly works out to `solarShare × (buyPrice − sellPrice)` per unit, i.e. the value of self-consuming solar vs. buying from the grid.
 
 - `ALV = 1.255` — Finnish VAT 25.5%
 - **Charging power is derived:** `gridPower(p) = min(phases × amperage × voltage / 1000, chargerCap)` — `params.chargingPower` is this grid power (kept in sync in `App.onParamChange` whenever phases/amperage/voltage/chargerCap change, and healed once on load in `storedParams`). The optimizer core still reads `params.chargingPower` directly, so it and its tests are unchanged. `chargeSpecs(p)` returns the read-only display values (grid power; charging power = grid × efficiency; speed = power-to-battery / capacity × 100; energy-to-battery = ΔSOC/100 × capacity; energy-from-grid = that / efficiency)

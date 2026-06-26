@@ -61,9 +61,10 @@ describe('calcNetCost', () => {
     expect(calcNetCost(p, 10, 23, 0)).toBeCloseTo(10 + 3 + 0.5 * ALV, 10)
   })
 
-  test('full solar coverage: pay nothing, lose the sell-back value', () => {
+  test('full solar coverage: pay nothing for grid, but forgo the export revenue', () => {
     const full = p.chargingPower * 1000
-    expect(calcNetCost(p, 10, 12, full)).toBeCloseTo(-(10 / ALV - 0.25), 10)
+    // self-consuming solar to charge means giving up the sell-back value — an opportunity cost
+    expect(calcNetCost(p, 10, 12, full)).toBeCloseTo(10 / ALV - 0.25, 10)
   })
 
   test('solar share is clamped at 100%', () => {
