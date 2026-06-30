@@ -67,7 +67,7 @@ src/
 hoursNeeded = (socTarget - socNow) / 100 * batteryCapacity / (1 - chargingLoss/100) / chargingPower
 
 calcNetCost(params, spotCent, hour, solarW):
-  solarShare = min(solarW / (chargingPower * 1000), 1.0)   # 0 when solarEnabled=false
+  solarShare = min(max(0, solarW - solarBase) / (chargingPower * 1000), 1.0)   # 0 when solarEnabled=false
   buyPrice   = (1 - solarShare) * (spot + transferFee + buyMargin * 1.255)
   sellPrice  = max(0, spot / 1.255 - sellMargin)
   return buyPrice + solarShare * sellPrice
@@ -85,7 +85,7 @@ calcNetCost(params, spotCent, hour, solarW):
 - **Consecutive mode** (default): exact-cost scan — for each start index, walk forward consuming `hoursNeeded` at per-slot capacity; pick max achieved hours, then min cost, then earliest (O(n²), n ≤ ~300)
 - **Individual mode**: sort by netCost, take cheapest slots until their combined capacity covers `hoursNeeded`, re-sort chronologically — this is what catches sub-hour price dips
 - **Usage walk**: cost/completion derived by consuming `hoursNeeded` chronologically over `selectedList` (current slot starts at `now`, last slot partial). Yields `achievableHours`, energy-weighted `totalCost`/`avgNetCost`, the grid-only baseline for `solarSavings`, usage-weighted `solarPct`, and `completionTime` (`null` when nothing scheduled; end of last slot when the need doesn't fit). A second walk over the earliest consecutive candidates gives the "charge straight through from now" baseline; `savingsVsNow` = that cost − `totalCost` (≥ 0, same energy so the delta is purely timing)
-- **Solar**: solar data stays hourly — each slot reads its hour's average via `getSolarForDt` (hour-key truncation of the slot's `dt`). `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0; `solarPct`/`solarSavings` are then 0
+- **Solar**: solar data stays hourly — each slot reads its hour's average via `getSolarForDt` (hour-key truncation of the slot's `dt`). `params.solarEnabled=false` passes `solarW=0` to `calcNetCost` (disabling solar influence on rankings) and forces `solarNow` to 0; `solarPct`/`solarSavings` are then 0. `solarBase` (W) is the house base load that consumes solar before any reaches the charger: `solarShare` uses the **surplus** `max(0, solarW − solarBase)`, so only solar beyond the household draw offsets charging cost (default 0 = all solar available). `solarNow` still reports raw production for display, not the post-base surplus
 - **HourList scale**: `netCostMin`/`netCostMax` are the min/max net cost over `candidates`. `HourList` normalizes each row's bar against this range so bar length + color tier reflect absolute cheapness vs. all upcoming slots, not just rank within the picked subset.
 - **Short window**: when `achievableHours < hoursNeeded` (tight deadline/horizon), `App` renders a warning with the achievable vs. needed hours; a passed deadline gets its own warning instead
 

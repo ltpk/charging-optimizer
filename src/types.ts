@@ -50,6 +50,7 @@ export interface Params {
   solarDec: number
   solarAz: number
   solarKwp: number
+  solarBase: number // house base load (W) served by solar before any is available for charging
   solarEnabled: boolean
 }
 

@@ -75,6 +75,18 @@ describe('calcNetCost', () => {
   test('sell price floors at zero on negative spot', () => {
     expect(calcNetCost(p, -1, 12, p.chargingPower * 1000)).toBeCloseTo(0, 10)
   })
+
+  test('base consumption eats solar before any is available for charging', () => {
+    const full = p.chargingPower * 1000 // 5000 W
+    // 2000 W base load served first → only 3000 W (60%) surplus offsets charging
+    const pb = { ...p, solarBase: 2000 }
+    const share = 0.6
+    const buy = (1 - share) * (10 + 5 + 0.5 * ALV)
+    const sell = 10 / ALV - 0.25
+    expect(calcNetCost(pb, 10, 12, full)).toBeCloseTo(buy + share * sell, 10)
+    // base ≥ production → no solar surplus, falls back to grid-only cost
+    expect(calcNetCost({ ...p, solarBase: full }, 10, 12, full)).toBeCloseTo(calcNetCost(p, 10, 12, 0), 10)
+  })
 })
 
 describe('optimize', () => {

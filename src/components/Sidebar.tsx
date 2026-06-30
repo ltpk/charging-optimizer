@@ -627,6 +627,14 @@ export function Sidebar({
                   max={30}
                   onCommit={p('solarKwp')}
                 />
+                <NumField
+                  label="Base consumption (W)"
+                  info="Other household load (fridge, standby, heat pump…) served by solar before any is left for charging. Only surplus solar offsets charging cost."
+                  value={params.solarBase}
+                  step={50}
+                  min={0}
+                  onCommit={p('solarBase')}
+                />
 
                 <Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>

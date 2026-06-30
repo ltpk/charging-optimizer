@@ -38,6 +38,7 @@ export const DEFAULT_PARAMS: Params = {
   solarDec: 30,
   solarAz: 180,
   solarKwp: 5.92,
+  solarBase: 0,
   solarEnabled: false,
 }
 
@@ -87,7 +88,9 @@ export function getTransfer(p: Params, hour: number): number {
 }
 
 function solarShare(p: Params, solarW: number): number {
-  return Math.min(solarW / (p.chargingPower * 1000), 1.0)
+  // house base load is served by solar first; only the surplus is available for charging
+  const surplusW = Math.max(0, solarW - p.solarBase)
+  return Math.min(surplusW / (p.chargingPower * 1000), 1.0)
 }
 
 // usable charging time of a slot in hours: SLOT_H for future slots, the remaining fraction for the current slot

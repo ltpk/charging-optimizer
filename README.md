@@ -62,12 +62,14 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 | Sell margin                | Deducted from spot when calculating solar sell-back value                                                                   |
 | Search window              | How many hours ahead to search for the optimal window                                                                       |
 | Solar PV (enable)          | Toggle solar influence on/off without losing panel configuration                                                            |
+| Base consumption           | House base load (W) served by solar first; only surplus solar offsets charging (default 0 = all solar available)            |
 
 ## Solar setup
 
 1. Click **Get GPS** to store your coordinates
 2. Set panel tilt, azimuth (compass degrees: 0 = N, 90 = E, 180 = S, 270 = W — converted automatically to Open-Meteo's 0 = S convention), and peak power (kWp)
-3. Click **Fetch solar forecast** — data is cached until midnight (changing location or panel parameters prompts a refetch)
+3. Optionally set **Base consumption** (W) — other household load (fridge, standby, heat pump, …) that consumes solar before any reaches the charger, so only the surplus offsets charging cost
+4. Click **Fetch solar forecast** — data is cached until midnight (changing location or panel parameters prompts a refetch)
 
 ## APIs used
 
