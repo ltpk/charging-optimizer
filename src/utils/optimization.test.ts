@@ -99,6 +99,15 @@ describe('optimize', () => {
     expect(r.totalCost).toBe(0)
   })
 
+  test('degenerate config (100 % loss, 0 kW power) yields an empty plan instead of Infinity', () => {
+    const fullLoss = optimize(prices(12, [5, 5, 5]), {}, { ...baseParams, chargingLoss: 100 }, NOON)!
+    expect(fullLoss.hoursNeeded).toBe(0)
+    expect(fullLoss.selectedList).toHaveLength(0)
+    const noPower = optimize(prices(12, [5, 5, 5]), {}, { ...baseParams, chargingPower: 0 }, NOON)!
+    expect(noPower.hoursNeeded).toBe(0)
+    expect(noPower.totalCost).toBe(0)
+  })
+
   test('hoursNeeded accounts for charging loss', () => {
     const p = { ...baseParams, socNow: 50, socTarget: 80, batteryCapacity: 77, chargingLoss: 11, chargingPower: 5.5 }
     const r = optimize(prices(12, Array(10).fill(5)), {}, p, NOON)!

@@ -101,6 +101,17 @@ export interface FetchPricesResult {
   statusText: string
 }
 
+// true while tomorrow's day-ahead prices haven't landed and the local clock is inside the
+// publication window (Nord Pool publishes ~14:00 EET; spot-hinta serves it shortly after) —
+// the caller polls faster during this window so new prices appear within minutes
+export function awaitingDayAhead(priceData: PriceEntry[], now: Date = new Date()): boolean {
+  const hour = now.getHours()
+  if (hour < 13 || hour >= 16) return false
+  const tomorrow = new Date(now)
+  tomorrow.setHours(24, 0, 0, 0)
+  return !priceData.some(d => d.source === 'actual' && d.dt >= tomorrow)
+}
+
 let prewarmed: Promise<FetchPricesResult> | null = null
 
 // kick off the price round-trip before React mounts so the network overlaps with bundle

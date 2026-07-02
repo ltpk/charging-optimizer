@@ -126,13 +126,54 @@ function NumField({ label, value, step, min, max, onCommit, info }: NumFieldProp
         onChange={e => {
           setText(e.target.value)
           const v = parseFloat(e.target.value)
-          if (!isNaN(v)) onCommit(v)
+          // commit only in-range values — the htmlInput min/max attrs alone don't stop typed input
+          if (!isNaN(v) && (min == null || v >= min) && (max == null || v <= max)) onCommit(v)
         }}
         onBlur={() => {
-          if (isNaN(parseFloat(text))) setText(String(value)) // revert an empty/invalid field
+          const v = parseFloat(text)
+          // revert an empty/invalid/out-of-range field to the committed value
+          if (isNaN(v) || (min != null && v < min) || (max != null && v > max)) setText(String(value))
         }}
       />
     </Box>
+  )
+}
+
+// lat/lon text field — GeoCoords are strings, so commit the raw text once it parses in range
+function GeoField({
+  label,
+  value,
+  min,
+  max,
+  onCommit,
+}: {
+  label: string
+  value: string
+  min: number
+  max: number
+  onCommit: (v: string) => void
+}) {
+  const [text, setText] = useState(value)
+  useEffect(() => {
+    if (text !== value) setText(value)
+  }, [value]) // depend only on `value` — re-syncing on `text` would clobber mid-typing
+  return (
+    <TextField
+      label={label}
+      type="number"
+      value={text}
+      slotProps={{ htmlInput: { min, max, step: 'any' } }}
+      size="small"
+      onChange={e => {
+        setText(e.target.value)
+        const v = parseFloat(e.target.value)
+        if (!isNaN(v) && v >= min && v <= max) onCommit(e.target.value)
+      }}
+      onBlur={() => {
+        const v = parseFloat(text)
+        if (isNaN(v) || v < min || v > max) setText(value)
+      }}
+    />
   )
 }
 
@@ -235,6 +276,7 @@ interface Props {
   onResetParams: () => void
   geoCoords: GeoCoords | null
   onGetGeo: () => void
+  onGeoField: (key: keyof GeoCoords, value: string) => void
   onFetchSolar: () => void
   onRefreshPrices: () => void
   spotStatus: ApiStatus
@@ -249,6 +291,7 @@ export function Sidebar({
   onResetParams,
   geoCoords,
   onGetGeo,
+  onGeoField,
   onFetchSolar,
   onRefreshPrices,
   spotStatus,
@@ -429,6 +472,7 @@ export function Sidebar({
                 info="Usable battery size."
                 value={params.batteryCapacity}
                 step={1}
+                min={1}
                 onCommit={p('batteryCapacity')}
               />
               <NumField
@@ -463,7 +507,7 @@ export function Sidebar({
                   info="Charge current per phase."
                   value={params.amperage}
                   step={1}
-                  min={0}
+                  min={1}
                   max={32}
                   onCommit={p('amperage')}
                 />
@@ -482,6 +526,8 @@ export function Sidebar({
                 info="Energy lost as heat etc. — grid draw exceeds energy stored. Typically 5–15%."
                 value={params.chargingLoss}
                 step={1}
+                min={0}
+                max={50}
                 onCommit={p('chargingLoss')}
               />
               <ChargeSpecs params={params} />
@@ -637,26 +683,27 @@ export function Sidebar({
                 />
 
                 <Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Location
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <FieldLabel info="Coordinates for the solar forecast — use GPS or type them in.">Location</FieldLabel>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25 }}>
+                      <GeoField
+                        label="Lat"
+                        value={geoCoords?.lat ?? ''}
+                        min={-90}
+                        max={90}
+                        onCommit={v => onGeoField('lat', v)}
+                      />
+                      <GeoField
+                        label="Lon"
+                        value={geoCoords?.lon ?? ''}
+                        min={-180}
+                        max={180}
+                        onCommit={v => onGeoField('lon', v)}
+                      />
+                    </Box>
                     <Button variant="outlined" size="small" onClick={onGetGeo}>
-                      Get GPS
+                      Get GPS location
                     </Button>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        flex: 1,
-                        textAlign: 'right',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {geoCoords ? `${geoCoords.lat}, ${geoCoords.lon}` : '–'}
-                    </Typography>
                   </Box>
                 </Box>
 

@@ -44,6 +44,7 @@ interface Props {
   totalCost: number
   savingsVsNow: number
   spotNow: number
+  netCostNow: number
   transferNow: number
   transferEnabled: boolean
   solarNow: number
@@ -61,6 +62,7 @@ export function Metrics({
   totalCost,
   savingsVsNow,
   spotNow,
+  netCostNow,
   transferNow,
   transferEnabled,
   solarNow,
@@ -82,7 +84,9 @@ export function Metrics({
       `solar covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} € (${solarPctSaved.toFixed(0)} %)`,
     )
   }
-  const nowSub = transferEnabled ? [`transfer ${transferNow.toFixed(2)} c/kWh`] : []
+  // net cost is what the optimizer actually ranks by — surface the current slot's value
+  const nowSub = [`net cost ${netCostNow.toFixed(2)} c/kWh`]
+  if (transferEnabled) nowSub.push(`transfer ${transferNow.toFixed(2)} c/kWh`)
   if (solarEnabled) nowSub.push(`solar ${Math.round(solarNow)} W`)
   const costSub = [`avg ${avgNetCost.toFixed(1)} c/kWh`]
   if (savingsVsNow >= 0.005) {

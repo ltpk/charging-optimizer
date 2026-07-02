@@ -43,9 +43,11 @@ export const DEFAULT_PARAMS: Params = {
 }
 
 function calcHours(p: Params): number {
+  const efficiency = 1 - p.chargingLoss / 100
+  // degenerate configs (0 kW grid power, ≥100 % loss) would divide to Infinity — treat as "can't charge"
+  if (p.chargingPower <= 0 || efficiency <= 0) return 0
   const energyToCharge = ((p.socTarget - p.socNow) / 100) * p.batteryCapacity
-  const gridEnergy = energyToCharge / (1 - p.chargingLoss / 100)
-  return Math.max(0, gridEnergy / p.chargingPower)
+  return Math.max(0, energyToCharge / efficiency / p.chargingPower)
 }
 
 // grid power (kW the meter sees) from electrical params, capped by the onboard charger
@@ -88,6 +90,7 @@ export function getTransfer(p: Params, hour: number): number {
 }
 
 function solarShare(p: Params, solarW: number): number {
+  if (p.chargingPower <= 0) return 0
   // house base load is served by solar first; only the surplus is available for charging
   const surplusW = Math.max(0, solarW - p.solarBase)
   return Math.min(surplusW / (p.chargingPower * 1000), 1.0)

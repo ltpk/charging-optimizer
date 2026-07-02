@@ -24,10 +24,10 @@ import { Metrics } from './components/Metrics'
 import { HourList } from './components/HourList'
 // Chart.js (~39 kB gzip) is the heaviest non-MUI dep; defer it so it loads after first paint
 const PriceChart = lazy(() => import('./components/PriceChart').then(m => ({ default: m.PriceChart })))
-import { fetchPrices } from './utils/api'
-import { fetchSolarData, loadCachedSolar, solarCacheKey } from './utils/solar'
+import { fetchPrices, awaitingDayAhead } from './utils/api'
+import { fetchSolarData, loadCachedSolar, solarCacheKey, isValidGeo } from './utils/solar'
 import { optimize, getTransfer, gridPower, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
-import { lsGet, lsSet, LS_PARAMS, LS_GEO, LS_COLOR_MODE, LS_NOTIFY } from './utils/storage'
+import { lsGet, lsSet, LS_PARAMS, LS_GEO, LS_COLOR_MODE, LS_NOTIFY, localDateStr } from './utils/storage'
 import type { Params, PriceEntry, SolarData, GeoCoords, ApiStatus, OptimizeResult } from './types'
 
 type ColorMode = 'light' | 'dark' | 'system'
@@ -81,10 +81,18 @@ export default function App() {
   )
   // the location/panel setup the current solarData was fetched for — used to warn when params drift
   const fetchedSolarKeyRef = useRef<string | null>(cachedSolar ? solarCacheKey(storedGeo, storedParams) : null)
+  // local day the forecast was fetched — a new day needs a fresh fetch (cache is only valid same-day)
+  const fetchedSolarDayRef = useRef<string | null>(cachedSolar ? localDateStr() : null)
+  // whether the current solarStatus is the params-drift warning (so it can be cleared on revert)
+  const driftWarnRef = useRef(false)
 
   useEffect(() => {
     lsSet(LS_PARAMS, params)
   }, [params])
+
+  useEffect(() => {
+    if (geoCoords) lsSet(LS_GEO, geoCoords)
+  }, [geoCoords])
 
   // advance `now` only when the clock crosses a 15-min slot boundary (optimize output is
   // slot-granular); also re-check when the tab returns to the foreground after being throttled
@@ -126,16 +134,21 @@ export default function App() {
     let timer: ReturnType<typeof setTimeout>
     let cancelled = false
     let hasData = false
+    let inFlight = false
+    let nextRefreshAt = Infinity
 
     async function load() {
+      if (inFlight) return // manual refresh / visibility catch-up while a fetch is running
+      inFlight = true
       clearTimeout(timer)
-      let ok = false
+      let delay = 300_000 // quick retry after a failure
       try {
         setSpotStatus({ ok: false, warn: false, text: hasData ? 'Refreshing prices...' : 'Fetching price data...' })
         const { priceData: data, statusText } = await fetchPrices()
         if (cancelled) return
         hasData = true
-        ok = true
+        // poll fast while tomorrow's day-ahead prices are due (~14:00 EET), hourly otherwise
+        delay = awaitingDayAhead(data) ? 600_000 : 3_600_000
         setPriceData(data)
         setError(null)
         setSpotStatus({ ok: true, warn: false, text: statusText })
@@ -149,19 +162,28 @@ export default function App() {
           setSpotStatus({ ok: false, warn: true, text: 'Connection error' })
         }
       } finally {
+        inFlight = false
         if (!cancelled) {
           setLoading(false)
-          // hourly refresh on success, quick retry after a failure
-          timer = setTimeout(load, ok ? 3_600_000 : 300_000)
+          nextRefreshAt = Date.now() + delay
+          timer = setTimeout(load, delay)
         }
       }
     }
+
+    // background tabs throttle timers, so the refresh can sleep well past its slot —
+    // catch up as soon as the tab is visible again and the scheduled time has passed
+    const onVisible = () => {
+      if (!document.hidden && Date.now() >= nextRefreshAt) load()
+    }
+    document.addEventListener('visibilitychange', onVisible)
 
     refreshRef.current = load
     load()
     return () => {
       cancelled = true
       clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])
 
@@ -183,20 +205,29 @@ export default function App() {
   }, [])
 
   const handleGetGeo = useCallback(() => {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(pos => {
-      const coords: GeoCoords = {
-        lat: pos.coords.latitude.toFixed(5),
-        lon: pos.coords.longitude.toFixed(5),
-      }
-      setGeoCoords(coords)
-      lsSet(LS_GEO, coords)
-    })
+    if (!navigator.geolocation) {
+      setSolarStatus({ ok: false, warn: true, text: 'No location service — type coordinates instead' })
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setGeoCoords({
+          lat: pos.coords.latitude.toFixed(5),
+          lon: pos.coords.longitude.toFixed(5),
+        })
+      },
+      // denied permission / no fix — the lat/lon fields remain as a manual fallback
+      () => setSolarStatus({ ok: false, warn: true, text: 'Location unavailable — type coordinates instead' }),
+    )
+  }, [])
+
+  const handleGeoField = useCallback((key: keyof GeoCoords, value: string) => {
+    setGeoCoords(prev => ({ lat: '', lon: '', ...prev, [key]: value }))
   }, [])
 
   const handleFetchSolar = useCallback(async () => {
-    if (!geoCoords) {
-      setSolarStatus({ ok: false, warn: true, text: 'Fetch GPS location first' })
+    if (!isValidGeo(geoCoords)) {
+      setSolarStatus({ ok: false, warn: true, text: 'Set location first (GPS or type coordinates)' })
       return
     }
     setSolarStatus({ ok: false, warn: false, text: 'Fetching Open-Meteo...' })
@@ -204,19 +235,61 @@ export default function App() {
       const data = await fetchSolarData(geoCoords, params)
       setSolarData(data)
       fetchedSolarKeyRef.current = solarCacheKey(geoCoords, params)
+      fetchedSolarDayRef.current = localDateStr()
+      driftWarnRef.current = false
       setSolarStatus({ ok: true, warn: false, text: `${Object.keys(data).length} h fetched` })
     } catch (e) {
       setSolarStatus({ ok: false, warn: true, text: `Error: ${(e as Error).message}` })
     }
   }, [geoCoords, params])
 
-  // warn when location/panel params no longer match the forecast on screen
+  // warn when location/panel params no longer match the forecast on screen — and clear
+  // the warning again if the user reverts them to the fetched setup
   useEffect(() => {
     const key = solarCacheKey(geoCoords, params)
-    if (fetchedSolarKeyRef.current && key !== fetchedSolarKeyRef.current) {
+    if (!fetchedSolarKeyRef.current) return
+    if (key !== fetchedSolarKeyRef.current) {
+      driftWarnRef.current = true
       setSolarStatus({ ok: false, warn: true, text: 'Panel settings changed — refetch forecast' })
+    } else if (driftWarnRef.current) {
+      driftWarnRef.current = false
+      setSolarStatus({ ok: true, warn: false, text: `${Object.keys(solarData).length} h loaded` })
     }
   }, [geoCoords, params.solarDec, params.solarAz, params.solarKwp]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // auto-fetch the forecast when solar is enabled with a valid location but there's no data
+  // for today (first visit, cache expired overnight, or the toggle just flipped on). Param-drift
+  // refetches stay manual: NumField commits per keystroke, so auto-fetching would spam the API.
+  useEffect(() => {
+    const check = () => {
+      if (!params.solarEnabled || !isValidGeo(geoCoords)) return
+      if (fetchedSolarKeyRef.current !== null && fetchedSolarDayRef.current === localDateStr()) return
+      handleFetchSolar()
+    }
+    // debounced — manual coordinate typing commits per keystroke
+    const debounce = setTimeout(check, 800)
+    // re-check just past local midnight so the forecast rolls over to the new day
+    let midnight: ReturnType<typeof setTimeout>
+    const armMidnight = () => {
+      const t = new Date()
+      const next = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1, 0, 0, 10)
+      midnight = setTimeout(() => {
+        check()
+        armMidnight()
+      }, next.getTime() - t.getTime())
+    }
+    armMidnight()
+    // throttled background tabs can sleep through the midnight timer — catch up when visible
+    const onVisible = () => {
+      if (!document.hidden) check()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearTimeout(debounce)
+      clearTimeout(midnight)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [params.solarEnabled, geoCoords, handleFetchSolar])
 
   const result = useMemo<OptimizeResult | null>(
     () => optimize(priceData, solarData, params, now),
@@ -258,6 +331,7 @@ export default function App() {
       onResetParams={handleResetParams}
       geoCoords={geoCoords}
       onGetGeo={handleGetGeo}
+      onGeoField={handleGeoField}
       onFetchSolar={handleFetchSolar}
       onRefreshPrices={handleRefreshPrices}
       spotStatus={spotStatus}
@@ -422,6 +496,7 @@ export default function App() {
                   totalCost={result.totalCost}
                   savingsVsNow={result.savingsVsNow}
                   spotNow={result.currentSlot.spotCent}
+                  netCostNow={result.currentSlot.netCost}
                   transferNow={getTransfer(params, result.currentSlot.hour)}
                   transferEnabled={params.transferEnabled}
                   solarNow={result.solarNow}

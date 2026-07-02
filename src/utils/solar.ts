@@ -11,6 +11,11 @@ interface OpenMeteoResponse {
   hourly?: { time?: string[]; global_tilted_irradiance?: number[] }
 }
 
+// coords are user-editable strings — only fetch/cache when both parse to finite numbers
+export function isValidGeo(coords: GeoCoords | null): coords is GeoCoords {
+  return !!coords && Number.isFinite(parseFloat(coords.lat)) && Number.isFinite(parseFloat(coords.lon))
+}
+
 // identifies the location + panel setup a forecast was fetched for — a cached
 // forecast is only valid while this key matches
 export function solarCacheKey(coords: GeoCoords | null, params: SolarParams): string | null {

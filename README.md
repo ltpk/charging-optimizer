@@ -18,13 +18,13 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 - Two optimization modes: cheapest **consecutive** block or cheapest **individual** 15-min slots — both account for the partially elapsed current slot (charging can start mid-slot; a slot with under ~4 minutes left is skipped)
 - Optional **charge-by deadline** — constrains the search window to complete charging before a given hour (e.g. by 07:00); warns when the deadline is too tight to reach the target SOC, or when it has already passed
 - Configurable battery capacity, charging loss, grid transfer fees, and buy/sell margins (Finnish VAT 25.5% applied correctly). Charging power is derived from a 1-/3-phase selection, charge current, and voltage, capped by the car's onboard charger; a read-only panel shows the resulting charging speed (%/hr), charging power, energy to battery, and (when there's loss) grid power and energy from grid
-- Metrics panel shows a "Charge plan" box (hours needed, with rounded duration, kWh to be drawn from the grid, the estimated completion time "done by", and — when solar is enabled — the % of the charge covered by solar and estimated € saved vs. grid-only, both scoped to the recommended charging hours), estimated total cost with average c/kWh for the optimal period (and how much waiting saves — in € and as a % of the charge-now cost — vs. charging straight through from now), and a "Spot now" box with the current slot's spot price, transfer fee, and (when solar is enabled) forecast solar output
+- Metrics panel shows a "Charge plan" box (hours needed, with rounded duration, kWh to be drawn from the grid, the estimated completion time "done by", and — when solar is enabled — the % of the charge covered by solar and estimated € saved vs. grid-only, both scoped to the recommended charging hours), estimated total cost with average c/kWh for the optimal period (and how much waiting saves — in € and as a % of the charge-now cost — vs. charging straight through from now), and a "Spot now" box with the current slot's spot price, its net cost (the figure the optimizer actually ranks by), transfer fee, and (when solar is enabled) forecast solar output
 - Cheapest-hours list groups the selected 15-min slots per clock hour (partial rows like "21:45 · 15 min" at window edges); bars use an absolute scale — length and color (green → amber → red) are normalized against all upcoming slots, so a full green bar means genuinely cheap, not just cheapest among the picked slots; the current row is marked "now" and each row shows its price delta vs. the cheapest selected row
 - Price chart plots quarter-hour prices as stepped lines (a price holds for its 15-min slot) with hourly axis labels and a smoothed solar curve; shaded windows, the night-rate step, and the "now" line (at the elapsed fraction of the current slot) all align with actual clock times
 - Optional browser notification when the charging window starts (in-tab; enable in the sidebar)
 - Light/dark/system theme: a single AppBar button cycles system → light → dark; follows `prefers-color-scheme` by default and remembers your choice
 - Mobile-responsive layout: settings are an inline sidebar on desktop and a slide-in drawer on mobile; set-once config (vehicle, transfer fee, margins, solar) is tucked under an "Advanced Setup" section with a "Restore defaults" button, and info tooltips explain the less obvious fields
-- All data cached in `localStorage`; prices refresh hourly or on demand via the refresh button (a failed refresh keeps the last good data on screen and retries after 5 minutes), solar caches for the local calendar day and invalidates when location or panel parameters change
+- All data cached in `localStorage`; prices refresh hourly — every 10 minutes during the ~14:00 day-ahead publication window until tomorrow's prices arrive — or on demand via the refresh button (a failed refresh keeps the last good data on screen and retries after 5 minutes; a backgrounded tab whose timers were throttled catches up the moment it becomes visible again). The solar forecast caches for the local calendar day and refetches automatically on load and just after midnight while solar is enabled; changing location or panel parameters prompts a manual refetch
 - The "now" marker, current-slot status, and optimal window advance on each quarter hour automatically (and when the tab regains focus), without needing a data refresh
 
 ## Development
@@ -35,7 +35,7 @@ bun run dev       # http://localhost:5173
 bun run build     # production build → dist/
 bun run preview   # serve dist/ locally
 bun run typecheck # tsc --noEmit
-bun test          # unit tests for the optimization core
+bun test          # unit tests (optimization core + pure api helpers)
 ```
 
 Performance: the price chart (Chart.js) is lazy-loaded via `React.lazy`/`Suspense`, so it splits into its own bundle chunk (~58 kB gzip) and loads after first paint instead of blocking the initial load. React and MUI are split into their own vendor chunks (`vite.config.ts` `manualChunks`) so they stay cached across deploys while only the small app chunk re-downloads. The price fetch is kicked off at module load (`prewarmPrices()` in `main.tsx`) so the network round-trip overlaps with bundle parse/execute, and `index.html` preconnects to the spot-price API. The favicon is an inline SVG data-URI (lightning bolt) in `index.html` — no extra request and no path to break under the Pages subpath.
@@ -66,10 +66,10 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 
 ## Solar setup
 
-1. Click **Get GPS** to store your coordinates
+1. Set your location — click **Get GPS location** or type latitude/longitude into the fields directly (the manual fields also cover denied location permission or desktops without a location service)
 2. Set panel tilt, azimuth (compass degrees: 0 = N, 90 = E, 180 = S, 270 = W — converted automatically to Open-Meteo's 0 = S convention), and peak power (kWp)
 3. Optionally set **Base consumption** (W) — other household load (fridge, standby, heat pump, …) that consumes solar before any reaches the charger, so only the surplus offsets charging cost
-4. Click **Fetch solar forecast** — data is cached until midnight (changing location or panel parameters prompts a refetch)
+4. The forecast is fetched automatically once solar is enabled with a valid location, and again each new day; **Fetch solar forecast** forces a refetch — needed after changing location or panel parameters (the status line warns when the on-screen forecast no longer matches the settings)
 
 ## APIs used
 
