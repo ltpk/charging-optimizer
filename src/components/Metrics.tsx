@@ -94,7 +94,15 @@ export function Metrics({
     costSub.push(`saves ${savingsVsNow.toFixed(2)} € (${savingsPct.toFixed(0)} %) vs now`)
   }
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 1.5 }}>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
+        gap: 1.5,
+        // 3 cards in a 2-col grid leave an orphan slot on xs — stretch the last card across the row
+        '& > :last-of-type': { gridColumn: { xs: '1 / -1', sm: 'auto' } },
+      }}
+    >
       <Metric label="Charge plan" value={hoursNeeded.toFixed(1)} unit="h" sub={neededSub} />
       <Metric label="Est. cost" value={totalCost.toFixed(2)} unit="€" sub={costSub} />
       <Metric label="Spot now" value={spotNow.toFixed(2)} unit="c/kWh" sub={nowSub} />

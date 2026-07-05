@@ -2,7 +2,6 @@ import { useEffect, useId, useState } from 'react'
 import {
   Box,
   Divider,
-  Slider,
   TextField,
   Checkbox,
   ToggleButton,
@@ -20,24 +19,14 @@ import {
 } from '@mui/material'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import RefreshIcon from '@mui/icons-material/Refresh'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
+import { InfoTip, SliderField } from './fields'
 import { lsGet, lsSet, LS_ADVANCED_OPEN } from '../utils/storage'
 import { chargeSpecs } from '../utils/optimization'
 import type { Params, GeoCoords, ApiStatus } from '../types'
 
 // ── helpers ────────────────────────────────────────────────────
-
-function InfoTip({ text }: { text: string }) {
-  return (
-    <Tooltip title={text} enterTouchDelay={0} leaveTouchDelay={4000}>
-      <InfoOutlinedIcon
-        sx={{ fontSize: 14, color: 'text.disabled', ml: 0.5, verticalAlign: 'middle', cursor: 'help' }}
-      />
-    </Tooltip>
-  )
-}
 
 function SectionLabel({ children, info }: { children: string; info?: string }) {
   return (
@@ -45,42 +34,6 @@ function SectionLabel({ children, info }: { children: string; info?: string }) {
       {children}
       {info && <InfoTip text={info} />}
     </Typography>
-  )
-}
-
-interface SliderFieldProps {
-  label: string
-  value: number
-  unit: string
-  min: number
-  max: number
-  step: number
-  onChange: (v: number) => void
-  info?: string
-}
-
-function SliderField({ label, value, unit, min, max, step, onChange, info }: SliderFieldProps) {
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="body2" color="text.secondary">
-          {label}
-          {info && <InfoTip text={info} />}
-        </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-          {value} {unit}
-        </Typography>
-      </Box>
-      <Slider
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        size="small"
-        aria-label={label}
-        onChange={(_, v) => onChange(v as number)}
-      />
-    </Box>
   )
 }
 
@@ -274,6 +227,8 @@ interface Props {
   params: Params
   onParamChange: <K extends keyof Params>(key: K, value: Params[K]) => void
   onResetParams: () => void
+  /** false on small screens, where Battery State renders as a card in the main view instead */
+  showBattery: boolean
   geoCoords: GeoCoords | null
   onGetGeo: () => void
   onGeoField: (key: keyof GeoCoords, value: string) => void
@@ -289,6 +244,7 @@ export function Sidebar({
   params,
   onParamChange,
   onResetParams,
+  showBattery,
   geoCoords,
   onGetGeo,
   onGeoField,
@@ -317,7 +273,7 @@ export function Sidebar({
         px: 2,
         py: 2.5,
         width: { md: 300 },
-        height: '100%',
+        height: { md: '100%' },
         display: 'flex',
         flexDirection: 'column',
         gap: 1.75,
@@ -325,38 +281,42 @@ export function Sidebar({
         overflowX: 'hidden',
       }}
     >
-      {/* Battery state */}
-      <Box>
-        <SectionLabel>Battery State</SectionLabel>
-        <SliderField
-          label="SOC now"
-          info="State of charge — your battery's current level."
-          value={params.socNow}
-          unit="%"
-          min={0}
-          max={100}
-          step={1}
-          onChange={p('socNow')}
-        />
-        <Box sx={{ mt: 1.5 }} />
-        <SliderField
-          label="SOC target"
-          info="State of charge you want to reach."
-          value={params.socTarget}
-          unit="%"
-          min={10}
-          max={100}
-          step={10}
-          onChange={p('socTarget')}
-        />
-        {params.socNow >= params.socTarget && (
-          <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
-            SOC now ≥ target — battery already full
-          </Typography>
-        )}
-      </Box>
+      {/* Battery state — on small screens this lives as a card in the main view instead */}
+      {showBattery && (
+        <>
+          <Box>
+            <SectionLabel>Battery State</SectionLabel>
+            <SliderField
+              label="SOC now"
+              info="State of charge — your battery's current level."
+              value={params.socNow}
+              unit="%"
+              min={0}
+              max={100}
+              step={1}
+              onChange={p('socNow')}
+            />
+            <Box sx={{ mt: 1.5 }} />
+            <SliderField
+              label="SOC target"
+              info="State of charge you want to reach."
+              value={params.socTarget}
+              unit="%"
+              min={10}
+              max={100}
+              step={10}
+              onChange={p('socTarget')}
+            />
+            {params.socNow >= params.socTarget && (
+              <Typography variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
+                SOC now ≥ target — battery already full
+              </Typography>
+            )}
+          </Box>
 
-      <Divider />
+          <Divider />
+        </>
+      )}
 
       {/* Charging plan */}
       <Box>

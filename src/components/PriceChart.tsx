@@ -1,5 +1,5 @@
-import { memo, useRef, useMemo } from 'react'
-import { Box, Card, CardContent, Typography } from '@mui/material'
+import { memo, useRef, useMemo, useEffect } from 'react'
+import { Box, Card, CardContent, Typography, useMediaQuery } from '@mui/material'
 import { useTheme, alpha } from '@mui/material/styles'
 import {
   Chart as ChartJS,
@@ -36,6 +36,7 @@ export const PriceChart = memo(function PriceChart({
   params,
 }: Props) {
   const theme = useTheme()
+  const isNarrow = useMediaQuery(theme.breakpoints.down('sm'))
   const isDark = theme.palette.mode === 'dark'
   const P = theme.palette.primary.main
   const S = theme.palette.success.main
@@ -158,9 +159,26 @@ export const PriceChart = memo(function PriceChart({
   if (slots.length > 0) dts.push(new Date(slots[slots.length - 1].dt.getTime() + SLOT_MS))
   const labels = dts.map((dt, i) => fmtLabel(dt, i === 0))
 
-  // axis labels/gridlines only at hour starts, thinned to ≤ ~12 clock-aligned labels
-  const labelStepH = Math.max(1, Math.ceil(dts.length / 4 / 12))
+  // axis labels/gridlines only at hour starts, thinned to ≤ ~12 clock-aligned labels;
+  // the scrolled narrow chart has a fixed px/hour, so thin by label width instead
+  const labelStepH = isNarrow ? (showDate ? 3 : 2) : Math.max(1, Math.ceil(dts.length / 4 / 12))
   const tickShow = dts.map(dt => dt.getMinutes() === 0 && dt.getHours() % labelStepH === 0)
+
+  // on phones the full horizon doesn't fit legibly — give the chart a fixed width
+  // (~26 px per hour) inside a horizontal scroller and start the view at the now-line
+  const chartMinWidth = isNarrow ? Math.round((dts.length / 4) * 26) : undefined
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const dtsLen = dts.length
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !isNarrow || nowPosRef.current < 0) return
+    const frac = nowPosRef.current / Math.max(dtsLen - 1, 1)
+    // keep ~48 px of past context visible left of the now-line
+    el.scrollLeft = Math.max(frac * el.scrollWidth - 48, 0)
+    // scroll only when the layout mode or horizon changes — not on data refreshes, which
+    // would yank the position while the user is panning
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNarrow, horizonH])
 
   // keep raw values — rounding here and again in the tooltip can disagree with
   // the Metrics box on .xx5 prices (4.685 → 4.68 vs 4.69)
@@ -335,9 +353,19 @@ export const PriceChart = memo(function PriceChart({
           Price &amp; optimal window
         </Typography>
 
-        <Box sx={{ position: 'relative', height: 200, touchAction: 'pan-y' }}>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-          <Chart type="line" data={data as any} options={options} plugins={[bgShadePlugin, nowLinePlugin]} />
+        <Box ref={scrollRef} sx={{ overflowX: 'auto' }}>
+          <Box
+            sx={{
+              position: 'relative',
+              height: 200,
+              // allow horizontal panning of the scroller on the narrow layout
+              touchAction: isNarrow ? 'pan-x pan-y' : 'pan-y',
+              minWidth: chartMinWidth,
+            }}
+          >
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <Chart type="line" data={data as any} options={options} plugins={[bgShadePlugin, nowLinePlugin]} />
+          </Box>
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>

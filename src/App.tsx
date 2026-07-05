@@ -12,13 +12,16 @@ import {
   ThemeProvider,
   CssBaseline,
   useMediaQuery,
+  IconButton,
 } from '@mui/material'
 import { createTheme } from '@mui/material/styles'
 import LightModeIcon from '@mui/icons-material/LightMode'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness'
 import SettingsIcon from '@mui/icons-material/Settings'
+import CloseIcon from '@mui/icons-material/Close'
 import { Sidebar } from './components/Sidebar'
+import { BatteryCard } from './components/BatteryCard'
 import { StatusCard } from './components/StatusCard'
 import { Metrics } from './components/Metrics'
 import { HourList } from './components/HourList'
@@ -327,6 +330,7 @@ export default function App() {
   const sidebar = (
     <Sidebar
       params={params}
+      showBattery={isMdUp}
       onParamChange={onParamChange}
       onResetParams={handleResetParams}
       geoCoords={geoCoords}
@@ -421,14 +425,32 @@ export default function App() {
           {isMdUp ? (
             <Box sx={{ flexShrink: 0 }}>{sidebar}</Box>
           ) : (
+            // bottom sheet — thumb-reachable and keeps the results peeking above it, unlike a side drawer
             <Drawer
-              anchor="left"
+              anchor="bottom"
               open={sidebarOpen}
               onClose={() => setSidebarOpen(false)}
               ModalProps={{ keepMounted: true }}
-              sx={{ '& .MuiDrawer-paper': { width: 300, maxWidth: '85vw' } }}
+              sx={{
+                '& .MuiDrawer-paper': {
+                  borderTopLeftRadius: 16,
+                  borderTopRightRadius: 16,
+                  maxHeight: '85dvh',
+                  display: 'flex',
+                  flexDirection: 'column',
+                },
+              }}
             >
-              {sidebar}
+              <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
+                <Box sx={{ width: 36, height: 4, borderRadius: 2, bgcolor: 'action.disabled' }} />
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pl: 2, pr: 1 }}>
+                <Typography variant="subtitle2">Settings</Typography>
+                <IconButton size="small" onClick={() => setSidebarOpen(false)} aria-label="Close settings">
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              <Box sx={{ overflowY: 'auto', minHeight: 0 }}>{sidebar}</Box>
             </Drawer>
           )}
 
@@ -472,6 +494,10 @@ export default function App() {
                   firstSel={result.selectedList[0]}
                   lastSel={result.selectedList[result.selectedList.length - 1]}
                 />
+
+                {/* the everyday control — on small screens keep it out of the drawer so
+                    adjusting SOC doesn't hide the plan it updates */}
+                {!isMdUp && <BatteryCard params={params} onParamChange={onParamChange} />}
 
                 {result.deadlinePassed && result.nHours > 0 ? (
                   <Alert severity="warning">
