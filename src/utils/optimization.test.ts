@@ -192,6 +192,20 @@ describe('optimize', () => {
     expect(r.solarSavings).toBeGreaterThan(0)
   })
 
+  test('solar on negative spot reports negative savings (forfeited pay-to-consume)', () => {
+    const p = { ...baseParams, batteryCapacity: 5, solarEnabled: true } // need 1 h
+    const data = prices(12, [-5, -5, -5])
+    // full solar coverage everywhere: buy would be -5 + 1 transfer = -4, sell floors at 0
+    const solar: SolarData = Object.fromEntries(
+      [12, 13, 14].map(h => [new Date(2026, 5, 10, h).toISOString().slice(0, 13), p.chargingPower * 1000]),
+    )
+    const r = optimize(data, solar, p, NOON)!
+    expect(r.solarPct).toBeCloseTo(100, 6)
+    // grid-only cost −4 c/kWh × 1 h × 5 kW = −0.20 €; with solar the slot costs 0 → savings −0.20 €
+    expect(r.solarSavings).toBeCloseTo(-0.2, 10)
+    expect(r.totalCost).toBeCloseTo(0, 10)
+  })
+
   test('solar disabled zeroes solar influence', () => {
     const data = prices(12, [5, 5, 5])
     const solar: SolarData = { [new Date(2026, 5, 10, 13).toISOString().slice(0, 13)]: 99999 }

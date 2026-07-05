@@ -79,10 +79,15 @@ export function Metrics({
   const neededSub = [`${nHours} h rounded · ${kWhNeeded.toFixed(1)} kWh`]
   if (doneBy) neededSub.push(doneBy)
   if (solarEnabled) {
-    const solarPctSaved = solarSavings > 0 ? (solarSavings / (totalCost + solarSavings)) * 100 : 0
-    neededSub.push(
-      `solar covers ${solarPct.toFixed(0)}% · saves ${solarSavings.toFixed(2)} € (${solarPctSaved.toFixed(0)} %)`,
-    )
+    let solarLine = `solar covers ${solarPct.toFixed(0)}%`
+    if (solarSavings >= 0.005) {
+      const solarPctSaved = (solarSavings / (totalCost + solarSavings)) * 100
+      solarLine += ` · saves ${solarSavings.toFixed(2)} € (${solarPctSaved.toFixed(0)} %)`
+    } else if (solarSavings <= -0.005) {
+      // negative spot: grid power beats free solar, so self-consuming solar costs money
+      solarLine += ` · adds ${(-solarSavings).toFixed(2)} € (negative spot)`
+    }
+    neededSub.push(solarLine)
   }
   // net cost is what the optimizer actually ranks by — surface the current slot's value
   const nowSub = [`net cost ${netCostNow.toFixed(2)} c/kWh`]

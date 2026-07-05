@@ -227,7 +227,8 @@ export function optimize(
   const achievableHours = hoursNeeded - remaining
   const totalCost = (costSum * params.chargingPower) / 100
   const avgNetCost = achievableHours > EPS ? costSum / achievableHours : 0
-  const solarSavings = Math.max(0, ((gridSum - costSum) * params.chargingPower) / 100)
+  // can go negative on negative spot: self-consuming solar forfeits being paid to draw from the grid
+  const solarSavings = ((gridSum - costSum) * params.chargingPower) / 100
   const solarPct = achievableHours > EPS ? (shareSum / achievableHours) * 100 : 0
 
   // baseline: cost of plugging in and charging straight through from now (the earliest
