@@ -27,6 +27,74 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 - All data cached in `localStorage`; prices refresh hourly — every 10 minutes during the ~14:00 day-ahead publication window until tomorrow's prices arrive — or on demand via the refresh button (a failed refresh keeps the last good data on screen and retries after 5 minutes; a backgrounded tab whose timers were throttled catches up the moment it becomes visible again). The solar forecast caches for the local calendar day and refetches automatically on load and just after midnight while solar is enabled; changing location or panel parameters prompts a manual refetch
 - The "now" marker, current-slot status, and optimal window advance on each quarter hour automatically (and when the tab regains focus), without needing a data refresh
 
+## How it works
+
+Three views of the moving parts. The diagrams show topology — what feeds what and where the boundaries are; exact constants and cache keys live in [Features](#features) and the code.
+
+### Data pipeline
+
+Two price sources merge into one 15-minute slot series (actual prices always win over forecasts), solar arrives independently, and everything meets in the pure `optimize()` core:
+
+```mermaid
+flowchart LR
+  subgraph ext[External APIs]
+    SH["spot-hinta.fi<br>actual prices, 15-min"]
+    NP["nordpool-predict-fi<br>ML forecast, hourly"]
+    OM["Open-Meteo<br>tilted irradiance, hourly"]
+  end
+  subgraph ls[localStorage caches]
+    CA[("actual price cache")]
+    CF[("forecast cache")]
+    CS[("solar cache")]
+  end
+  SH --> CA
+  NP --> CF
+  OM --> CS
+  CA --> MERGE["merge per 15-min slot<br>(actuals override forecast)"]
+  CF --> MERGE
+  CS --> PV["per-hour PV watts"]
+  MERGE --> OPT["optimize()"]
+  PV --> OPT
+  UIIN["params + clock-aligned now"] --> OPT
+  OPT --> UI["Status · Metrics · Hour list · Chart"]
+```
+
+### Optimizer
+
+`optimize()` turns the SOC gap into hours of charging needed, prices every candidate slot with `calcNetCost()` (the grid share at buy price **plus** the solar share at the forgone sell price), picks slots per the chosen mode, and derives the reported numbers from a chronological usage walk:
+
+```mermaid
+flowchart TD
+  IN["SOC gap · battery capacity<br>charging loss · charging power"] --> HN["hoursNeeded"]
+  SLOTS["merged price slots + solar"] --> NC["netCost per slot:<br>grid share at buy price<br>+ solar share at forgone sell price"]
+  NC --> CAND["candidate slots<br>within horizon, before deadline,<br>in-progress slot at remaining capacity"]
+  HN --> MODE{"charging mode"}
+  CAND --> MODE
+  MODE -->|consecutive| CONS["scan every start index,<br>cheapest contiguous block"]
+  MODE -->|split| SPLIT["cheapest individual slots<br>until the need is covered"]
+  CONS --> WALK["usage walk: consume hoursNeeded<br>chronologically over selected slots"]
+  SPLIT --> WALK
+  WALK --> OUT["total & avg cost · completion time<br>solar share & savings · savings vs charge-now"]
+```
+
+### Price refresh cadence
+
+One fetch loop with three waiting speeds; a manual refresh or a tab returning to the foreground past its due time short-circuits any of them:
+
+```mermaid
+stateDiagram-v2
+  [*] --> Fetching : page load
+  state Waiting {
+    WaitHourly : hourly (normal)
+    WaitDayAhead : 10-min poll (day-ahead publication window)
+    WaitRetry : 5-min retry (last good data stays on screen)
+  }
+  Fetching --> WaitHourly : success
+  Fetching --> WaitDayAhead : success, but tomorrow's prices still missing
+  Fetching --> WaitRetry : fetch failed
+  Waiting --> Fetching : timer fires / manual refresh / tab foregrounded past due
+```
+
 ## Development
 
 ```bash

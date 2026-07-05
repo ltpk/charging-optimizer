@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A React + TypeScript + Vite application for optimizing EV charging times based on Finnish electricity spot prices and optional solar production forecasts. Personal use only — no auth, no backend.
 
+README.md's "How it works" section holds three Mermaid diagrams (data pipeline, optimizer pipeline, price-refresh cadence) at topology level — when changing those flows (new data source, cache, optimizer stage, or refresh state), update the matching diagram too.
+
 **Stack:** React 19, TypeScript 6 (strict), MUI v9 (light/dark/system theme), Chart.js 4 via react-chartjs-2, Vite 8.
 
 ## Commands
