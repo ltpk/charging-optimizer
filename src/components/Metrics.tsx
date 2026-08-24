@@ -81,8 +81,10 @@ export function Metrics({
   if (solarEnabled) {
     let solarLine = `solar covers ${solarPct.toFixed(0)}%`
     if (solarSavings >= 0.005) {
-      const solarPctSaved = (solarSavings / (totalCost + solarSavings)) * 100
-      solarLine += ` · saves ${solarSavings.toFixed(2)} € (${solarPctSaved.toFixed(0)} %)`
+      // grid-only baseline — negative spot can drive it to ~0, where the percent explodes; € only then
+      const baseline = totalCost + solarSavings
+      const pct = baseline >= 0.01 ? ` (${((solarSavings / baseline) * 100).toFixed(0)} %)` : ''
+      solarLine += ` · saves ${solarSavings.toFixed(2)} €${pct}`
     } else if (solarSavings <= -0.005) {
       // negative spot: grid power beats free solar, so self-consuming solar costs money
       solarLine += ` · adds ${(-solarSavings).toFixed(2)} € (negative spot)`
@@ -95,8 +97,10 @@ export function Metrics({
   if (solarEnabled) nowSub.push(`solar ${Math.round(solarNow)} W`)
   const costSub = [`avg ${avgNetCost.toFixed(1)} c/kWh`]
   if (savingsVsNow >= 0.005) {
-    const savingsPct = (savingsVsNow / (totalCost + savingsVsNow)) * 100
-    costSub.push(`saves ${savingsVsNow.toFixed(2)} € (${savingsPct.toFixed(0)} %) vs now`)
+    // charge-now baseline — negative spot can drive it to ~0, where the percent explodes; € only then
+    const chargeNowCost = totalCost + savingsVsNow
+    const pct = chargeNowCost >= 0.01 ? ` (${((savingsVsNow / chargeNowCost) * 100).toFixed(0)} %)` : ''
+    costSub.push(`saves ${savingsVsNow.toFixed(2)} €${pct} vs now`)
   }
   return (
     <Box
