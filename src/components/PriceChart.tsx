@@ -73,8 +73,8 @@ export const PriceChart = memo(function PriceChart({
         ctx.stroke()
         ctx.setLineDash([])
         ctx.fillStyle = W
-        ctx.font = '10px monospace'
-        ctx.fillText('now', x + 3, chartArea.top + 12)
+        ctx.font = '600 11px sans-serif'
+        ctx.fillText('now', x + 3, chartArea.bottom - 4)
         ctx.restore()
       },
     }),
@@ -83,23 +83,25 @@ export const PriceChart = memo(function PriceChart({
 
   // Slot i shades the span from tick i to tick i+1; drawn as rects so it aligns
   // with slot starts instead of bar cells centered on the ticks
-  const shadeRef = useRef<{ sel: boolean[]; night: boolean[]; hourStart: boolean[] }>({
+  const shadeRef = useRef<{ sel: boolean[]; night: boolean[]; hourStart: boolean[]; time: string[] }>({
     sel: [],
     night: [],
     hourStart: [],
+    time: [],
   })
   shadeRef.current = {
     sel: slots.map(h => selectedTs.has(h.ts)),
     night: slots.map(h => isNightHour(h.hour)),
     hourStart: slots.map(h => h.dt.getMinutes() === 0),
+    time: slots.map(h => h.dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })),
   }
 
   const bgShadePlugin = useMemo<Plugin<'line'>>(
     () => ({
       id: 'bgShade',
       beforeDatasetsDraw(chart) {
-        const { sel, night, hourStart } = shadeRef.current
-        const { S, nightBg } = colorsRef.current
+        const { sel, night, hourStart, time } = shadeRef.current
+        const { S, nightBg, tickColor } = colorsRef.current
         const { ctx, chartArea, scales } = chart
         const x = scales['x']
         const clampL = (px: number) => Math.max(px, chartArea.left)
@@ -134,8 +136,27 @@ export const PriceChart = memo(function PriceChart({
           const inset = Math.min(2, (right - left) * 0.4)
           const l = left + (sel[i - 1] && hourStart[i] ? inset : 0)
           const r = right - (sel[i + 1] && hourStart[i + 1] ? inset : 0)
-          ctx.fillStyle = alpha(S, 0.25)
+          ctx.fillStyle = alpha(S, 0.28)
           ctx.fillRect(l, chartArea.top, r - l, chartArea.bottom - chartArea.top)
+          // solid cap along the top edge so the window reads even where the lines cover the fill
+          ctx.fillStyle = S
+          ctx.fillRect(left, chartArea.top - 3, right - left, 3)
+        }
+
+        // label each contiguous window run with its start time, above the plot area
+        ctx.font = '600 11px sans-serif'
+        ctx.fillStyle = tickColor
+        ctx.textBaseline = 'bottom'
+        let lastLabelEnd = -Infinity
+        for (let i = 0; i < sel.length; i++) {
+          if (!sel[i] || sel[i - 1]) continue
+          const px = x.getPixelForValue(i)
+          if (px < chartArea.left || px > chartArea.right) continue
+          const w = ctx.measureText(time[i]).width
+          const lx = Math.min(px, chartArea.right - w)
+          if (lx < lastLabelEnd + 6) continue // skip a label that would collide with the previous one
+          ctx.fillText(time[i], lx, chartArea.top - 5)
+          lastLabelEnd = lx + w
         }
         ctx.restore()
       },
@@ -220,7 +241,7 @@ export const PriceChart = memo(function PriceChart({
         data: netCostData,
         borderColor: P,
         backgroundColor: alpha(P, 0.09),
-        borderWidth: 1.5,
+        borderWidth: 2,
         pointRadius: 0,
         // prices are constant within a slot — step instead of smoothing through the jumps
         stepped: 'before' as const,
@@ -292,6 +313,8 @@ export const PriceChart = memo(function PriceChart({
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
+    // headroom above the plot for the window start-time labels
+    layout: { padding: { top: 20 } },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -318,7 +341,7 @@ export const PriceChart = memo(function PriceChart({
         offset: false,
         ticks: {
           color: tickColor,
-          font: { size: 10, family: 'monospace' },
+          font: { size: 11 },
           maxRotation: 0,
           autoSkip: false,
           // returning null hides the tick and its gridline — only hour-start ticks show
@@ -328,8 +351,8 @@ export const PriceChart = memo(function PriceChart({
       },
       y: {
         position: 'left',
-        title: { display: true, text: 'c/kWh', color: tickColor, font: { size: 10 } },
-        ticks: { color: tickColor, font: { size: 10, family: 'monospace' } },
+        title: { display: true, text: 'c/kWh', color: tickColor, font: { size: 11 } },
+        ticks: { color: tickColor, font: { size: 11 } },
         grid: { color: gridColor },
         min: minY,
         max: maxY,
@@ -337,8 +360,8 @@ export const PriceChart = memo(function PriceChart({
       y2: {
         display: solarEnabled,
         position: 'right',
-        title: { display: true, text: 'kW', color: alpha(S, 0.8), font: { size: 10 } },
-        ticks: { color: alpha(S, 0.7), font: { size: 10, family: 'monospace' } },
+        title: { display: true, text: 'kW', color: alpha(S, 0.8), font: { size: 11 } },
+        ticks: { color: alpha(S, 0.7), font: { size: 11 } },
         grid: { drawOnChartArea: false },
         min: 0,
         max: maxY2,
@@ -350,14 +373,14 @@ export const PriceChart = memo(function PriceChart({
     <Card variant="outlined">
       <CardContent>
         <Typography variant="overline" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
-          Price &amp; optimal window
+          Price &amp; charging window
         </Typography>
 
         <Box ref={scrollRef} sx={{ overflowX: 'auto' }}>
           <Box
             sx={{
               position: 'relative',
-              height: 200,
+              height: isNarrow ? 240 : 280,
               // allow horizontal panning of the scroller on the narrow layout
               touchAction: isNarrow ? 'pan-x pan-y' : 'pan-y',
               minWidth: chartMinWidth,
@@ -371,11 +394,10 @@ export const PriceChart = memo(function PriceChart({
         <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
           {[
             { color: P, label: 'Net cost (c/kWh)' },
-            { color: alpha(P, 0.73), label: 'Spot actual (c/kWh)' },
-            { color: alpha(P, 0.35), label: 'Spot forecast (c/kWh)' },
+            { color: alpha(P, 0.73), label: 'Spot (faded = forecast)' },
             ...(transferEnabled ? [{ color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' }] : []),
             ...(solarEnabled ? [{ color: alpha(S, 0.8), label: 'Solar output (kW)' }] : []),
-            { color: alpha(S, 0.25), label: 'Selected window', border: true },
+            { color: alpha(S, 0.28), label: 'Charging window', border: true },
             { color: nightBg, label: 'Night rate', border: true },
           ].map(({ color, label, border }) => (
             <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.625 }}>

@@ -15,15 +15,14 @@ Finds the cheapest hours to charge an EV based on Finnish electricity spot price
 
 - **15-minute resolution** end to end: actual spot prices from [spot-hinta.fi](https://spot-hinta.fi) (today + tomorrow) are used at their native quarter-hour market-time-unit resolution, so the plan catches price dips inside an hour; [nordpool-predict-fi](https://github.com/vividfog/nordpool-predict-fi) ML forecasts (hourly) fill the uncovered hours as flat quarters
 - Optional solar production forecast from [Open-Meteo](https://open-meteo.com) — global tilted irradiance (GTI) for your panel tilt/azimuth, converted to PV output (`kWp × GTI/1000 × 0.85` performance ratio) to offset charging cost when solar covers part of charging power
-- Two optimization modes: cheapest **consecutive** block or cheapest **individual** 15-min slots — both account for the partially elapsed current slot (charging can start mid-slot; a slot with under ~4 minutes left is skipped)
+- Finds the cheapest **consecutive** charging window over 15-min slots — accounting for the partially elapsed current slot (charging can start mid-slot; a slot with under ~4 minutes left is skipped)
 - Optional **charge-by deadline** — constrains the search window to complete charging before a given hour (e.g. by 07:00); warns when the deadline is too tight to reach the target SOC, or when it has already passed
 - Configurable battery capacity, charging loss, grid transfer fees, and buy/sell margins (Finnish VAT 25.5% applied correctly). Charging power is derived from a 1-/3-phase selection, charge current, and voltage, capped by the car's onboard charger; a read-only panel shows the resulting charging speed (%/hr), charging power, energy to battery, and (when there's loss) grid power and energy from grid
-- Metrics panel shows a "Charge plan" box (hours needed, with rounded duration, kWh to be drawn from the grid, the estimated completion time "done by", and — when solar is enabled — the % of the charge covered by solar and estimated € saved vs. grid-only, both scoped to the recommended charging hours; on negative spot prices this flips to "adds … € (negative spot)", since self-consuming solar then forfeits being paid to draw from the grid), estimated total cost with average c/kWh for the optimal period (and how much waiting saves — in € and as a % of the charge-now cost — vs. charging straight through from now), and a "Spot now" box with the current slot's spot price, its net cost (the figure the optimizer actually ranks by), transfer fee, and (when solar is enabled) forecast solar output. Both savings percentages are dropped — leaving just the € amount — when the baseline they measure against is under 0.01 €, since negative spot prices can push that baseline through zero, where a percentage of it would be meaningless
-- Cheapest-hours list groups the selected 15-min slots per clock hour (partial rows like "21:45 · 15 min" at window edges); bars use an absolute scale — length and color (green → amber → red) are normalized against all upcoming slots, so a full green bar means genuinely cheap, not just cheapest among the picked slots; the current row is marked "now" and each row shows its price delta vs. the cheapest selected row
+- The answer comes first: a plan card at the top shows whether to charge now or when to start (e.g. "Start at 02:15 tomorrow", with time remaining), then when charging is done (hours and kWh), the estimated cost with average c/kWh (and how much of it is transfer fee), how much waiting saves vs. charging straight through from now, and — when solar is enabled — the % of the charge covered by solar and the € it saves vs. grid-only (on negative spot prices this flips to "adds … € (negative spot)", since self-consuming solar then forfeits being paid to draw from the grid). A footer line shows the current slot's spot price, its net cost (the figure the optimizer actually ranks by), transfer fee and solar output. Savings percentages are dropped — leaving just the € amount — when the baseline they measure against is under 0.01 €, since negative spot prices can push it through zero. Once the card scrolls out of view, a compact summary stays visible in the sticky top bar
 - Price chart plots quarter-hour prices as stepped lines (a price holds for its 15-min slot) with hourly axis labels and a smoothed solar curve; shaded windows, the night-rate step, and the "now" line (at the elapsed fraction of the current slot) all align with actual clock times. On phones the chart scrolls horizontally at a fixed per-hour width — opening at the "now" line — so a 48/72 h horizon stays readable instead of being squeezed into the viewport
 - Optional browser notification when the charging window starts (in-tab; enable in the sidebar)
 - Light/dark/system theme: a single AppBar button cycles system → light → dark; follows `prefers-color-scheme` by default and remembers your choice
-- Mobile-responsive layout: settings are an inline sidebar on desktop and a bottom sheet on mobile, where the everyday Battery State sliders (SOC now / target) sit as a card in the main view instead so adjusting them doesn't cover the plan they update; set-once config (vehicle, transfer fee, margins, solar) is tucked under an "Advanced Setup" section with a "Restore defaults" button, and info tooltips explain the less obvious fields
+- Mobile-responsive layout: everyday controls (battery SOC, search window, charge-by) sit in an inline sidebar on desktop and a bottom sheet on mobile, where the SOC sliders sit as a card in the main view instead so adjusting them doesn't cover the plan they update; set-once config (vehicle, transfer fee, margins, solar) lives in a separate "Vehicle & pricing setup" dialog (full-screen on phones) with a "Restore defaults" button, and info tooltips explain the less obvious fields. The price chart spans the full width, labels the charging window's start time and scrolls horizontally on phones
 - All data cached in `localStorage`; prices refresh hourly — every 10 minutes during the ~14:00 day-ahead publication window until tomorrow's prices arrive — or on demand via the refresh button (a failed refresh keeps the last good data on screen and retries after 5 minutes; a backgrounded tab whose timers were throttled catches up the moment it becomes visible again). The solar forecast caches for the local calendar day and refetches automatically on load and just after midnight while solar is enabled; changing location or panel parameters prompts a manual refetch
 - The "now" marker, current-slot status, and optimal window advance on each quarter hour automatically (and when the tab regains focus), without needing a data refresh
 
@@ -56,7 +55,7 @@ flowchart LR
   MERGE --> OPT["optimize()"]
   PV --> OPT
   UIIN["params + clock-aligned now"] --> OPT
-  OPT --> UI["Status · Metrics · Hour list · Chart"]
+  OPT --> UI["Plan card · Chart"]
 ```
 
 ### Optimizer
@@ -68,12 +67,9 @@ flowchart TD
   IN["SOC gap · battery capacity<br>charging loss · charging power"] --> HN["hoursNeeded"]
   SLOTS["merged price slots + solar"] --> NC["netCost per slot:<br>grid share at buy price<br>+ solar share at forgone sell price"]
   NC --> CAND["candidate slots<br>within horizon, before deadline,<br>in-progress slot at remaining capacity"]
-  HN --> MODE{"charging mode"}
-  CAND --> MODE
-  MODE -->|consecutive| CONS["scan every start index,<br>cheapest contiguous block"]
-  MODE -->|split| SPLIT["cheapest individual slots<br>until the need is covered"]
+  HN --> CONS["scan every start index,<br>cheapest contiguous block"]
+  CAND --> CONS
   CONS --> WALK["usage walk: consume hoursNeeded<br>chronologically over selected slots"]
-  SPLIT --> WALK
   WALK --> OUT["total & avg cost · completion time<br>solar share & savings · savings vs charge-now"]
 ```
 
@@ -114,7 +110,7 @@ No environment variables or API keys required — all APIs are public.
 
 ## Configuration
 
-All parameters are set in the sidebar UI and persisted automatically. Key inputs:
+Everyday parameters are set in the sidebar, set-once ones in the "Vehicle & pricing setup" dialog; all are persisted automatically. Key inputs:
 
 | Parameter                  | Description                                                                                                                 |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -123,7 +119,6 @@ All parameters are set in the sidebar UI and persisted automatically. Key inputs
 | Charging loss              | Round-trip loss (%) — energy drawn from grid exceeds energy stored                                                          |
 | Onboard charger            | Car's max AC power (kW) — caps grid power                                                                                   |
 | Phases / current / voltage | 1- or 3-phase, charge current (A), and grid voltage (V); grid power = min(phases × A × V, onboard charger)                  |
-| Consecutive hours          | Contiguous block mode (default) vs. cheapest individual 15-min slots                                                        |
 | Charge by                  | Optional deadline — optimizer only uses slots that complete before this hour-of-day                                         |
 | Transfer fee               | Grid transfer fee (c/kWh); toggle on/off, choose a single fixed fee or separate day/night rates (night applies 22:00–07:00) |
 | Buy margin                 | Retailer margin on purchases (c/kWh, VAT-exclusive)                                                                         |

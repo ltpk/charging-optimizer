@@ -10,7 +10,6 @@ const baseParams: Params = {
   batteryCapacity: 10,
   chargingLoss: 0,
   chargingPower: 5,
-  consecutive: true,
   horizonH: 24,
   chargeByEnabled: false,
   transferDay: 1,
@@ -124,15 +123,15 @@ describe('optimize', () => {
     expect(r.achievableHours).toBeCloseTo(2, 10)
   })
 
-  test('individual mode picks the cheapest non-contiguous hours', () => {
-    const r = optimize(prices(12, [1, 10, 2, 10, 10]), {}, { ...baseParams, consecutive: false }, NOON)!
-    expect(selectedHours(r)).toEqual([12, 14])
-    expect(r.selectedList).toHaveLength(8)
-    expect(r.completionTime).toEqual(new Date(2026, 5, 10, 15, 0))
+  test('avgTransfer splits the transfer fee out of avgNetCost', () => {
+    const r = optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, baseParams, NOON)!
+    expect(r.avgTransfer).toBeCloseTo(1, 10) // flat 1 c/kWh
+    const off = optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, { ...baseParams, transferEnabled: false }, NOON)!
+    expect(off.avgTransfer).toBe(0)
   })
 
-  test('individual mode catches a sub-hour price dip', () => {
-    const p = { ...baseParams, batteryCapacity: 2.5, consecutive: false } // need 0.5 h
+  test('the window catches a sub-hour price dip', () => {
+    const p = { ...baseParams, batteryCapacity: 2.5 } // need 0.5 h
     const r = optimize(quarterPrices(12, [10, 1, 1, 10, 10, 10, 10, 10]), {}, p, NOON)!
     expect(selectedStarts(r)).toEqual(['12:15', '12:30'])
     expect(r.completionTime).toEqual(new Date(2026, 5, 10, 12, 45))
@@ -181,7 +180,7 @@ describe('optimize', () => {
   })
 
   test('solar-covered hour wins and is reported in coverage/savings', () => {
-    const p = { ...baseParams, batteryCapacity: 5, consecutive: false, solarEnabled: true } // need 1 h
+    const p = { ...baseParams, batteryCapacity: 5, solarEnabled: true } // need 1 h
     const data = prices(12, [5, 5, 5])
     // solar data is keyed per hour — 13:00 fully solar-covered
     const solar: SolarData = { [new Date(2026, 5, 10, 13).toISOString().slice(0, 13)]: p.chargingPower * 1000 }
@@ -225,12 +224,6 @@ describe('optimize', () => {
     const r = optimize(prices(12, [2, 2, 10, 10]), {}, baseParams, NOON)!
     expect(selectedHours(r)).toEqual([12, 13])
     expect(r.savingsVsNow).toBeCloseTo(0, 10)
-  })
-
-  test('netCostMin/netCostMax span the candidate slots', () => {
-    const r = optimize(prices(12, [10, 2, 6]), {}, baseParams, NOON)!
-    expect(r.netCostMin).toBeCloseTo(3, 10)
-    expect(r.netCostMax).toBeCloseTo(11, 10)
   })
 
   test('returns null without price data', () => {

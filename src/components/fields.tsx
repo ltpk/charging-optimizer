@@ -1,7 +1,7 @@
 import { Box, Slider, Tooltip, Typography } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 
-// shared field helpers used by the Sidebar and the mobile quick-controls card
+// shared field helpers used by the Sidebar, SetupDialog and the mobile battery card
 
 export function InfoTip({ text }: { text: string }) {
   return (
@@ -56,5 +56,25 @@ export function SliderField({ label, value, unit, min, max, step, onChange, info
         onChange={(_, v) => onChange(v as number)}
       />
     </Box>
+  )
+}
+
+// overline section heading with an optional info tip
+export function SectionLabel({ children, info }: { children: string; info?: string }) {
+  return (
+    <Typography variant="overline" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
+      {children}
+      {info && <InfoTip text={info} />}
+    </Typography>
+  )
+}
+
+// label with an optional info tip, used for the toggle-group controls
+export function FieldLabel({ children, info }: { children: string; info?: string }) {
+  return (
+    <Typography variant="body2" color="text.secondary" gutterBottom>
+      {children}
+      {info && <InfoTip text={info} />}
+    </Typography>
   )
 }

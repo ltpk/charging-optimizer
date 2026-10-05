@@ -35,7 +35,6 @@ export interface Params {
   voltage: number // grid voltage (V)
   chargerCap: number // onboard charger limit (kW)
   chargingPower: number // derived grid power = min(phases × amperage × voltage / 1000, chargerCap)
-  consecutive: boolean
   horizonH: number
   chargeByEnabled: boolean
   chargeByHour: number
@@ -69,10 +68,10 @@ export interface OptimizeResult {
   savingsVsNow: number
   nowIdx: number
   slotSources: boolean[]
-  netCostMin: number
-  netCostMax: number
   solarNow: number
   solarPct: number
   solarSavings: number
   avgNetCost: number
+  /** transfer-fee part of avgNetCost (c/kWh) */
+  avgTransfer: number
 }

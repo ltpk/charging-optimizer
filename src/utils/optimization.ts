@@ -23,7 +23,6 @@ export const DEFAULT_PARAMS: Params = {
   voltage: 230,
   chargerCap: 11,
   chargingPower: 11,
-  consecutive: true,
   horizonH: 24,
   chargeByEnabled: false,
   chargeByHour: 7,
@@ -156,46 +155,29 @@ export function optimize(
     h => slotCapacity(h.dt, now) >= MIN_SLOT_CAPACITY && (!deadlineDt || h.dt < deadlineDt),
   )
 
-  // net-cost spread across the upcoming candidate slots — anchors the HourList bars to an absolute scale
-  const futureNet = candidates.map(h => h.netCost)
-  const netCostMin = futureNet.length ? Math.min(...futureNet) : 0
-  const netCostMax = futureNet.length ? Math.max(...futureNet) : 0
-
   let selectedList: SlotEntry[] = []
   if (hoursNeeded > EPS && candidates.length) {
-    if (params.consecutive) {
-      // exact-cost scan (n ≤ ~300): from each start, walk forward consuming hoursNeeded at
-      // per-slot capacity; prefer the most achievable window, then the cheapest, then the earliest
-      let bestCost = Infinity,
-        bestAchieved = -1
-      for (let i = 0; i < candidates.length; i++) {
-        let remaining = hoursNeeded,
-          cost = 0
-        let end = i
-        for (let j = i; j < candidates.length && remaining > EPS; j++) {
-          const h = candidates[j]
-          const used = Math.min(slotCapacity(h.dt, now), remaining)
-          cost += used * h.netCost
-          remaining -= used
-          end = j + 1
-        }
-        const achieved = hoursNeeded - remaining
-        if (achieved > bestAchieved + EPS || (achieved > bestAchieved - EPS && cost < bestCost - EPS)) {
-          bestAchieved = achieved
-          bestCost = cost
-          selectedList = candidates.slice(i, end)
-        }
+    // exact-cost scan (n ≤ ~300): from each start, walk forward consuming hoursNeeded at
+    // per-slot capacity; prefer the most achievable window, then the cheapest, then the earliest
+    let bestCost = Infinity,
+      bestAchieved = -1
+    for (let i = 0; i < candidates.length; i++) {
+      let remaining = hoursNeeded,
+        cost = 0
+      let end = i
+      for (let j = i; j < candidates.length && remaining > EPS; j++) {
+        const h = candidates[j]
+        const used = Math.min(slotCapacity(h.dt, now), remaining)
+        cost += used * h.netCost
+        remaining -= used
+        end = j + 1
       }
-    } else {
-      // cheapest individual slots until their combined capacity covers the need
-      const sorted = [...candidates].sort((a, b) => a.netCost - b.netCost)
-      let remaining = hoursNeeded
-      for (const h of sorted) {
-        if (remaining <= EPS) break
-        selectedList.push(h)
-        remaining -= slotCapacity(h.dt, now)
+      const achieved = hoursNeeded - remaining
+      if (achieved > bestAchieved + EPS || (achieved > bestAchieved - EPS && cost < bestCost - EPS)) {
+        bestAchieved = achieved
+        bestCost = cost
+        selectedList = candidates.slice(i, end)
       }
-      selectedList.sort((a, b) => a.dt.getTime() - b.dt.getTime())
     }
   }
 
@@ -210,7 +192,8 @@ export function optimize(
   let remaining = hoursNeeded
   let costSum = 0,
     gridSum = 0,
-    shareSum = 0
+    shareSum = 0,
+    transferSum = 0
   let completionTime: Date | null = null
   for (const h of selectedList) {
     const startMs = Math.max(h.dt.getTime(), now.getTime())
@@ -218,6 +201,8 @@ export function optimize(
     costSum += used * h.netCost
     gridSum += used * calcNetCost(params, h.spotCent, h.hour, 0)
     shareSum += used * solarShare(params, h.solarW)
+    // only grid-drawn energy pays the transfer fee — the solar fraction doesn't
+    transferSum += used * (1 - solarShare(params, h.solarW)) * getTransfer(params, h.hour)
     remaining -= used
     completionTime = new Date(startMs + used * 3_600_000)
     if (remaining <= EPS) break
@@ -227,6 +212,8 @@ export function optimize(
   const achievableHours = hoursNeeded - remaining
   const totalCost = (costSum * params.chargingPower) / 100
   const avgNetCost = achievableHours > EPS ? costSum / achievableHours : 0
+  // transfer-fee part of avgNetCost; the rest is energy (spot + margin, incl. solar opportunity cost)
+  const avgTransfer = achievableHours > EPS ? transferSum / achievableHours : 0
   // can go negative on negative spot: self-consuming solar forfeits being paid to draw from the grid
   const solarSavings = ((gridSum - costSum) * params.chargingPower) / 100
   const solarPct = achievableHours > EPS ? (shareSum / achievableHours) * 100 : 0
@@ -261,11 +248,10 @@ export function optimize(
     savingsVsNow,
     nowIdx: slots.findIndex(h => h.ts === nowTs),
     slotSources: slots.map(h => h.source === 'actual'),
-    netCostMin,
-    netCostMax,
     solarNow: params.solarEnabled ? getSolarForDt(solarData, now) : 0,
     solarPct,
     solarSavings,
     avgNetCost,
+    avgTransfer,
   }
 }

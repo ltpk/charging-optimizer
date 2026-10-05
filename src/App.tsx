@@ -13,6 +13,9 @@ import {
   CssBaseline,
   useMediaQuery,
   IconButton,
+  Chip,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material'
 import { createTheme } from '@mui/material/styles'
 import LightModeIcon from '@mui/icons-material/LightMode'
@@ -21,10 +24,9 @@ import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness'
 import SettingsIcon from '@mui/icons-material/Settings'
 import CloseIcon from '@mui/icons-material/Close'
 import { Sidebar } from './components/Sidebar'
+import { SetupDialog } from './components/SetupDialog'
 import { BatteryCard } from './components/BatteryCard'
-import { StatusCard } from './components/StatusCard'
-import { Metrics } from './components/Metrics'
-import { HourList } from './components/HourList'
+import { PlanCard, planStatus } from './components/PlanCard'
 // Chart.js (~39 kB gzip) is the heaviest non-MUI dep; defer it so it loads after first paint
 const PriceChart = lazy(() => import('./components/PriceChart').then(m => ({ default: m.PriceChart })))
 import { fetchPrices, awaitingDayAhead } from './utils/api'
@@ -53,17 +55,15 @@ export default function App() {
           mode: resolvedMode,
           ...(resolvedMode === 'light' && { background: { default: '#f5f5f5' } }),
         },
+        shape: { borderRadius: 8 },
       }),
     [resolvedMode],
   )
   const isMdUp = useMediaQuery(theme.breakpoints.up('md'))
 
-  const cycleColorMode = useCallback(() => {
-    setColorMode(prev => {
-      const next: ColorMode = prev === 'system' ? 'light' : prev === 'light' ? 'dark' : 'system'
-      lsSet(LS_COLOR_MODE, next)
-      return next
-    })
+  const changeColorMode = useCallback((next: ColorMode) => {
+    setColorMode(next)
+    lsSet(LS_COLOR_MODE, next)
   }, [])
 
   const [params, setParams] = useState<Params>(storedParams)
@@ -76,6 +76,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [setupOpen, setSetupOpen] = useState(false)
   const [spotStatus, setSpotStatus] = useState<ApiStatus>({ ok: false, warn: false, text: 'Fetching...' })
   const [solarStatus, setSolarStatus] = useState<ApiStatus>(() =>
     cachedSolar
@@ -327,16 +328,29 @@ export default function App() {
     prevGoRef.current = isGo
   }, [result, isGo, notifyEnabled])
 
+  // once the plan card scrolls out of view, the sticky app bar shows a compact summary instead
+  const [heroVisible, setHeroVisible] = useState(true)
+  const heroObserver = useRef<IntersectionObserver | null>(null)
+  const heroRef = useCallback((el: HTMLElement | null) => {
+    heroObserver.current?.disconnect()
+    if (!el) return setHeroVisible(true)
+    heroObserver.current = new IntersectionObserver(([e]) => setHeroVisible(e.isIntersecting), {
+      rootMargin: '-56px 0px 0px 0px', // app bar height
+    })
+    heroObserver.current.observe(el)
+  }, [])
+
+  const openSetup = useCallback(() => {
+    setSidebarOpen(false)
+    setSetupOpen(true)
+  }, [])
+
   const sidebar = (
     <Sidebar
       params={params}
       showBattery={isMdUp}
       onParamChange={onParamChange}
-      onResetParams={handleResetParams}
-      geoCoords={geoCoords}
-      onGetGeo={handleGetGeo}
-      onGeoField={handleGeoField}
-      onFetchSolar={handleFetchSolar}
+      onOpenSetup={openSetup}
       onRefreshPrices={handleRefreshPrices}
       spotStatus={spotStatus}
       solarStatus={solarStatus}
@@ -344,6 +358,10 @@ export default function App() {
       onToggleNotify={handleToggleNotify}
     />
   )
+
+  const status = result
+    ? planStatus(isGo, result.nHours <= 0, result.selectedList[0], result.selectedList[result.selectedList.length - 1])
+    : null
 
   return (
     <ThemeProvider theme={theme}>
@@ -354,76 +372,86 @@ export default function App() {
           flexDirection: 'column',
           minHeight: '100vh',
           bgcolor: 'background.default',
-          overflowX: 'hidden',
+          // clip, not hidden — hidden makes this a scroll container and breaks the sticky app bar
+          overflowX: 'clip',
         }}
       >
         {/* Header */}
-        <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Toolbar variant="dense" sx={{ gap: { xs: 1, sm: 2 } }}>
-            <Typography
-              variant="h6"
-              component="h1"
-              sx={{ flexShrink: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            >
-              EV Charging Optimizer
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              {[
-                { label: 'spot-hinta.fi', href: 'https://spot-hinta.fi' },
-                { label: 'nordpool-predict-fi', href: 'https://github.com/vividfog/nordpool-predict-fi' },
-                { label: 'Open-Meteo', href: 'https://open-meteo.com' },
-                { label: 'GitHub', href: 'https://github.com/ltpk/charging-optimizer' },
-              ].map(({ label, href }, i, arr) => (
-                <span key={label}>
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                  >
-                    {label}
-                  </a>
-                  {i < arr.length - 1 && ' · '}
-                </span>
-              ))}
-            </Typography>
-            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Tooltip title={`Theme: ${colorMode} (click to change)`}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={cycleColorMode}
-                  aria-label={`Theme: ${colorMode}`}
-                  sx={{ minWidth: 0, px: { xs: '5px', sm: 1.5 } }}
-                >
-                  {colorMode === 'light' ? (
-                    <LightModeIcon fontSize="small" />
-                  ) : colorMode === 'dark' ? (
-                    <DarkModeIcon fontSize="small" />
-                  ) : (
-                    <SettingsBrightnessIcon fontSize="small" />
-                  )}
-                </Button>
-              </Tooltip>
-              <Button
-                size="small"
-                variant={sidebarOpen ? 'contained' : 'outlined'}
-                onClick={() => setSidebarOpen(o => !o)}
-                sx={{ display: { md: 'none' }, minWidth: 0, px: { xs: '5px', sm: 1.5 } }}
+        <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Toolbar variant="dense" sx={{ gap: { xs: 1, sm: 2 }, minHeight: 48 }}>
+            {!heroVisible && status && result ? (
+              // plan card scrolled away — keep the answer in view
+              <Chip
+                color={status.color}
+                label={`${status.short}${result.nHours > 0 ? ` · ${result.totalCost.toFixed(2)} €` : ''}`}
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                sx={{ fontWeight: 600, minWidth: 0 }}
+              />
+            ) : (
+              <Typography
+                variant="h6"
+                component="h1"
+                sx={{ flexShrink: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
-                <SettingsIcon fontSize="small" />
-                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 1 }}>
-                  Settings
-                </Box>
-              </Button>
+                EV Charging Optimizer
+              </Typography>
+            )}
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+              <ToggleButtonGroup
+                value={colorMode}
+                exclusive
+                size="small"
+                aria-label="Color theme"
+                onChange={(_, v: ColorMode | null) => {
+                  if (v) changeColorMode(v)
+                }}
+                sx={{ '& .MuiToggleButton-root': { px: 0.75, py: 0.5 } }}
+              >
+                {(
+                  [
+                    ['light', 'Light', <LightModeIcon fontSize="small" />],
+                    ['system', 'System', <SettingsBrightnessIcon fontSize="small" />],
+                    ['dark', 'Dark', <DarkModeIcon fontSize="small" />],
+                  ] as const
+                ).map(([value, label, icon]) => (
+                  <Tooltip key={value} title={label}>
+                    <ToggleButton value={value} aria-label={label}>
+                      {icon}
+                    </ToggleButton>
+                  </Tooltip>
+                ))}
+              </ToggleButtonGroup>
+              {!isMdUp && (
+                <IconButton
+                  size="small"
+                  color={sidebarOpen ? 'primary' : 'default'}
+                  onClick={() => setSidebarOpen(o => !o)}
+                  aria-label="Settings"
+                >
+                  <SettingsIcon fontSize="small" />
+                </IconButton>
+              )}
             </Box>
           </Toolbar>
         </AppBar>
 
+        <SetupDialog
+          open={setupOpen}
+          onClose={() => setSetupOpen(false)}
+          params={params}
+          onParamChange={onParamChange}
+          onResetParams={handleResetParams}
+          geoCoords={geoCoords}
+          onGetGeo={handleGetGeo}
+          onGeoField={handleGeoField}
+          onFetchSolar={handleFetchSolar}
+          solarStatus={solarStatus}
+        />
+
         {/* Sidebar + main */}
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, flex: 1, minHeight: 0 }}>
           {isMdUp ? (
-            <Box sx={{ flexShrink: 0 }}>{sidebar}</Box>
+            <Box sx={{ flexShrink: 0, borderRight: 1, borderColor: 'divider' }}>{sidebar}</Box>
           ) : (
             // bottom sheet — thumb-reachable and keeps the results peeking above it, unlike a side drawer
             <Drawer
@@ -457,13 +485,13 @@ export default function App() {
           <Box
             component="main"
             sx={{
-              p: { xs: '16px', sm: '24px 28px' },
+              p: { xs: 2, sm: '24px 28px' },
               display: 'flex',
               flexDirection: 'column',
-              gap: 2.5,
-              overflowY: 'auto',
+              gap: 2,
               flex: 1,
               minWidth: 0,
+              maxWidth: 1280,
             }}
           >
             {loading && (
@@ -488,16 +516,29 @@ export default function App() {
 
             {!loading && !error && result && (
               <>
-                <StatusCard
-                  isGo={isGo}
-                  isFull={result.nHours <= 0}
-                  firstSel={result.selectedList[0]}
-                  lastSel={result.selectedList[result.selectedList.length - 1]}
-                />
-
-                {/* the everyday control — on small screens keep it out of the drawer so
-                    adjusting SOC doesn't hide the plan it updates */}
-                {!isMdUp && <BatteryCard params={params} onParamChange={onParamChange} />}
+                <Box ref={heroRef}>
+                  <PlanCard
+                    isGo={isGo}
+                    isFull={result.nHours <= 0}
+                    firstSel={result.selectedList[0]}
+                    lastSel={result.selectedList[result.selectedList.length - 1]}
+                    hoursNeeded={result.hoursNeeded}
+                    kWhNeeded={result.kWhNeeded}
+                    completionTime={result.completionTime}
+                    totalCost={result.totalCost}
+                    avgTransfer={result.avgTransfer}
+                    avgNetCost={result.avgNetCost}
+                    savingsVsNow={result.savingsVsNow}
+                    spotNow={result.currentSlot.spotCent}
+                    netCostNow={result.currentSlot.netCost}
+                    transferNow={getTransfer(params, result.currentSlot.hour)}
+                    transferEnabled={params.transferEnabled}
+                    solarEnabled={params.solarEnabled}
+                    solarNow={result.solarNow}
+                    solarPct={result.solarPct}
+                    solarSavings={result.solarSavings}
+                  />
+                </Box>
 
                 {result.deadlinePassed && result.nHours > 0 ? (
                   <Alert severity="warning">
@@ -514,67 +555,63 @@ export default function App() {
                   )
                 )}
 
-                <Metrics
-                  hoursNeeded={result.hoursNeeded}
-                  kWhNeeded={result.kWhNeeded}
-                  completionTime={result.completionTime}
-                  nHours={result.nHours}
-                  totalCost={result.totalCost}
-                  savingsVsNow={result.savingsVsNow}
-                  spotNow={result.currentSlot.spotCent}
-                  netCostNow={result.currentSlot.netCost}
-                  transferNow={getTransfer(params, result.currentSlot.hour)}
-                  transferEnabled={params.transferEnabled}
-                  solarNow={result.solarNow}
-                  solarPct={result.solarPct}
-                  solarSavings={result.solarSavings}
-                  avgNetCost={result.avgNetCost}
-                  solarEnabled={params.solarEnabled}
-                />
+                {/* the everyday control — on small screens keep it out of the drawer so
+                    adjusting SOC doesn't hide the plan it updates */}
+                {!isMdUp && <BatteryCard params={params} onParamChange={onParamChange} />}
 
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', sm: '200px 1fr' },
-                    gap: 2,
-                    alignItems: 'start',
-                  }}
+                <Suspense
+                  fallback={
+                    <Box
+                      sx={{
+                        height: 380,
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <CircularProgress size={24} />
+                    </Box>
+                  }
                 >
-                  <HourList
-                    selectedList={result.selectedList}
-                    netCostMin={result.netCostMin}
-                    netCostMax={result.netCostMax}
-                    currentTs={result.currentSlot.ts}
+                  <PriceChart
+                    slots={result.slots}
+                    selectedTs={result.selectedTs}
+                    nowIdx={result.nowIdx}
+                    slotSources={result.slotSources}
+                    horizonH={params.horizonH}
+                    params={params}
                   />
-                  <Suspense
-                    fallback={
-                      <Box
-                        sx={{
-                          height: 281,
-                          borderRadius: 1,
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <CircularProgress size={24} />
-                      </Box>
-                    }
-                  >
-                    <PriceChart
-                      slots={result.slots}
-                      selectedTs={result.selectedTs}
-                      nowIdx={result.nowIdx}
-                      slotSources={result.slotSources}
-                      horizonH={params.horizonH}
-                      params={params}
-                    />
-                  </Suspense>
-                </Box>
+                </Suspense>
               </>
             )}
+            {/* data sources + repo — a page footer so they're reachable on every screen size */}
+            <Typography component="footer" variant="caption" color="text.secondary" sx={{ mt: 'auto', pt: 1 }}>
+              Data:{' '}
+              {[
+                { label: 'spot-hinta.fi', href: 'https://spot-hinta.fi' },
+                { label: 'nordpool-predict-fi', href: 'https://github.com/vividfog/nordpool-predict-fi' },
+                { label: 'Open-Meteo', href: 'https://open-meteo.com' },
+              ].map(({ label, href }, i, arr) => (
+                <span key={label}>
+                  <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+                    {label}
+                  </a>
+                  {i < arr.length - 1 && ' · '}
+                </span>
+              ))}
+              {' — '}
+              <a
+                href="https://github.com/ltpk/charging-optimizer"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'inherit' }}
+              >
+                Source on GitHub
+              </a>
+            </Typography>
           </Box>
         </Box>
       </Box>
