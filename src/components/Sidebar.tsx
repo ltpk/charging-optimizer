@@ -9,7 +9,6 @@ import {
   FormControlLabel,
   Button,
   Typography,
-  Paper,
   CircularProgress,
   IconButton,
   Tooltip,
@@ -93,23 +92,8 @@ export function Sidebar({
       onParamChange(key, v)
 
   return (
-    <Paper
-      component="aside"
-      square
-      elevation={0}
-      sx={{
-        borderRadius: 0,
-        px: 2,
-        py: 2.5,
-        width: { md: 300 },
-        height: { md: '100%' },
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 1.75,
-        overflowY: 'auto',
-        overflowX: 'hidden',
-      }}
-    >
+    // plain content — App wraps it in a sticky Card (md+) or the bottom-sheet Drawer (xs/sm)
+    <Box component="aside" sx={{ px: 2, py: 2.5, display: 'flex', flexDirection: 'column', gap: 1.75 }}>
       {/* Battery state — on small screens this lives as a card in the main view instead */}
       {showBattery && (
         <>
@@ -220,7 +204,7 @@ export function Sidebar({
       </Button>
 
       {/* Notifications */}
-      <Box sx={{ mt: 'auto' }}>
+      <Box>
         <FormControlLabel
           sx={{ mx: 0, gap: 0.5 }}
           control={<Checkbox size="small" checked={notifyEnabled} onChange={e => onToggleNotify(e.target.checked)} />}
@@ -259,6 +243,6 @@ export function Sidebar({
           </Box>
         )}
       </Box>
-    </Paper>
+    </Box>
   )
 }
