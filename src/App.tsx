@@ -16,6 +16,8 @@ import {
   Chip,
   ToggleButton,
   ToggleButtonGroup,
+  Container,
+  Card,
 } from '@mui/material'
 import { createTheme } from '@mui/material/styles'
 import LightModeIcon from '@mui/icons-material/LightMode'
@@ -378,61 +380,70 @@ export default function App() {
       >
         {/* Header */}
         <AppBar position="sticky" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Toolbar variant="dense" sx={{ gap: { xs: 1, sm: 2 }, minHeight: 48 }}>
-            {!heroVisible && status && result ? (
-              // plan card scrolled away — keep the answer in view
-              <Chip
-                color={status.color}
-                label={`${status.short}${result.nHours > 0 ? ` · ${result.totalCost.toFixed(2)} €` : ''}`}
-                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                sx={{ fontWeight: 600, minWidth: 0 }}
-              />
-            ) : (
-              <Typography
-                variant="h6"
-                component="h1"
-                sx={{ flexShrink: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-              >
-                EV Charging Optimizer
-              </Typography>
-            )}
-            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-              <ToggleButtonGroup
-                value={colorMode}
-                exclusive
-                size="small"
-                aria-label="Color theme"
-                onChange={(_, v: ColorMode | null) => {
-                  if (v) changeColorMode(v)
-                }}
-                sx={{ '& .MuiToggleButton-root': { px: 0.75, py: 0.5 } }}
-              >
-                {(
-                  [
-                    ['light', 'Light', <LightModeIcon fontSize="small" />],
-                    ['system', 'System', <SettingsBrightnessIcon fontSize="small" />],
-                    ['dark', 'Dark', <DarkModeIcon fontSize="small" />],
-                  ] as const
-                ).map(([value, label, icon]) => (
-                  <Tooltip key={value} title={label}>
-                    <ToggleButton value={value} aria-label={label}>
-                      {icon}
-                    </ToggleButton>
-                  </Tooltip>
-                ))}
-              </ToggleButtonGroup>
-              {!isMdUp && (
-                <IconButton
-                  size="small"
-                  color={sidebarOpen ? 'primary' : 'default'}
-                  onClick={() => setSidebarOpen(o => !o)}
-                  aria-label="Settings"
+          {/* toolbar content aligns with the centered page container below */}
+          <Container maxWidth="lg">
+            <Toolbar variant="dense" disableGutters sx={{ gap: { xs: 1, sm: 2 }, minHeight: 48 }}>
+              {!heroVisible && status && result ? (
+                // plan card scrolled away — keep the answer in view
+                <Chip
+                  color={status.color}
+                  label={`${status.short}${result.nHours > 0 ? ` · ${result.totalCost.toFixed(2)} €` : ''}`}
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  sx={{ fontWeight: 600, minWidth: 0 }}
+                />
+              ) : (
+                <Typography
+                  variant="h6"
+                  component="h1"
+                  sx={{
+                    flexShrink: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  <SettingsIcon fontSize="small" />
-                </IconButton>
+                  EV Charging Optimizer
+                </Typography>
               )}
-            </Box>
-          </Toolbar>
+              <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                <ToggleButtonGroup
+                  value={colorMode}
+                  exclusive
+                  size="small"
+                  aria-label="Color theme"
+                  onChange={(_, v: ColorMode | null) => {
+                    if (v) changeColorMode(v)
+                  }}
+                  sx={{ '& .MuiToggleButton-root': { px: 0.75, py: 0.5 } }}
+                >
+                  {(
+                    [
+                      ['light', 'Light', <LightModeIcon fontSize="small" />],
+                      ['system', 'System', <SettingsBrightnessIcon fontSize="small" />],
+                      ['dark', 'Dark', <DarkModeIcon fontSize="small" />],
+                    ] as const
+                  ).map(([value, label, icon]) => (
+                    <Tooltip key={value} title={label}>
+                      <ToggleButton value={value} aria-label={label}>
+                        {icon}
+                      </ToggleButton>
+                    </Tooltip>
+                  ))}
+                </ToggleButtonGroup>
+                {!isMdUp && (
+                  <IconButton
+                    size="small"
+                    color={sidebarOpen ? 'primary' : 'default'}
+                    onClick={() => setSidebarOpen(o => !o)}
+                    aria-label="Settings"
+                  >
+                    <SettingsIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
+            </Toolbar>
+          </Container>
         </AppBar>
 
         <SetupDialog
@@ -448,10 +459,25 @@ export default function App() {
           solarStatus={solarStatus}
         />
 
-        {/* Sidebar + main */}
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, flex: 1, minHeight: 0 }}>
+        {/* centered page: controls card + results column on md+, a single column of cards below */}
+        <Container
+          maxWidth="lg"
+          sx={{
+            py: { xs: 2, sm: 3 },
+            display: 'grid',
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: '300px minmax(0, 1fr)' },
+            gap: { xs: 2, md: 3 },
+            alignItems: 'start',
+          }}
+        >
           {isMdUp ? (
-            <Box sx={{ flexShrink: 0, borderRight: 1, borderColor: 'divider' }}>{sidebar}</Box>
+            // sticky so the controls stay in reach while the results scroll
+            <Card
+              variant="outlined"
+              sx={{ position: 'sticky', top: 64, maxHeight: 'calc(100dvh - 80px)', overflowY: 'auto' }}
+            >
+              {sidebar}
+            </Card>
           ) : (
             // bottom sheet — thumb-reachable and keeps the results peeking above it, unlike a side drawer
             <Drawer
@@ -482,18 +508,7 @@ export default function App() {
             </Drawer>
           )}
 
-          <Box
-            component="main"
-            sx={{
-              p: { xs: 2, sm: '24px 28px' },
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              flex: 1,
-              minWidth: 0,
-              maxWidth: 1280,
-            }}
-          >
+          <Box component="main" sx={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
             {loading && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'text.secondary', py: 5 }}>
                 <CircularProgress size={16} />
@@ -613,7 +628,7 @@ export default function App() {
               </a>
             </Typography>
           </Box>
-        </Box>
+        </Container>
       </Box>
     </ThemeProvider>
   )
