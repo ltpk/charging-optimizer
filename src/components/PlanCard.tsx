@@ -121,9 +121,10 @@ export function PlanCard(props: Props) {
   }
 
   // net cost is what the optimizer actually ranks by — surface the current slot's value
-  const nowParts = [`spot ${fmtNum(props.spotNow)}`, `net ${fmtNum(props.netCostNow)}`]
-  if (props.transferEnabled) nowParts.push(`transfer ${fmtNum(props.transferNow)}`)
-  let nowLine = `Now: ${nowParts.join(' · ')} c/kWh`
+  const nowParts = [`spot ${fmtNum(props.spotNow)} c/kWh`]
+  if (props.transferEnabled) nowParts.push(`transfer ${fmtNum(props.transferNow)} c/kWh`)
+  nowParts.push(`net ${fmtNum(props.netCostNow)} c/kWh`)
+  let nowLine = `Now: ${nowParts.join(' · ')}`
   if (props.solarEnabled) nowLine += ` · solar ${Math.round(props.solarNow)} W`
 
   return (
