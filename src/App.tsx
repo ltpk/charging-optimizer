@@ -28,7 +28,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import { Sidebar } from './components/Sidebar'
 import { SetupDialog } from './components/SetupDialog'
 import { BatteryCard } from './components/BatteryCard'
-import { PlanCard, planStatus } from './components/PlanCard'
+import { PlanCard, planStatus, fmtNum } from './components/PlanCard'
 // Chart.js (~39 kB gzip) is the heaviest non-MUI dep; defer it so it loads after first paint
 const PriceChart = lazy(() => import('./components/PriceChart').then(m => ({ default: m.PriceChart })))
 import { fetchPrices, awaitingDayAhead } from './utils/api'
@@ -387,7 +387,7 @@ export default function App() {
                 // plan card scrolled away — keep the answer in view
                 <Chip
                   color={status.color}
-                  label={`${status.short}${result.nHours > 0 ? ` · ${result.totalCost.toFixed(2)} €` : ''}`}
+                  label={`${status.short}${result.nHours > 0 ? ` · ${fmtNum(result.totalCost)} €` : ''}`}
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                   sx={{ fontWeight: 600, minWidth: 0 }}
                 />
@@ -562,7 +562,7 @@ export default function App() {
                 ) : (
                   result.achievableHours + 0.01 < result.hoursNeeded && (
                     <Alert severity="warning">
-                      Only {result.achievableHours.toFixed(1)} of {result.hoursNeeded.toFixed(1)} needed charging hours
+                      Only {fmtNum(result.achievableHours, 1)} of {fmtNum(result.hoursNeeded, 1)} needed charging hours
                       fit
                       {params.chargeByEnabled ? ' before the deadline' : ' in the search window'} — target SOC won't be
                       reached.

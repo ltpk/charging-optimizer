@@ -3,6 +3,9 @@ import { Box, Card, CardContent, Chip, Typography } from '@mui/material'
 import { SLOT_MS } from '../utils/optimization'
 import type { SlotEntry } from '../types'
 
+// Finnish decimal comma for displayed numbers
+export const fmtNum = (n: number, digits = 2) => n.toFixed(digits).replace('.', ',')
+
 const fmtTime = (dt: Date) => dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
 
 // time plus a day hint when it isn't today ("tomorrow" / "7.10.")
@@ -109,15 +112,15 @@ export function PlanCard(props: Props) {
 
   let solarSub: string | undefined
   if (props.solarSavings >= 0.005) {
-    solarSub = `saves ${props.solarSavings.toFixed(2)} €${pctOf(props.solarSavings, totalCost + props.solarSavings)}`
+    solarSub = `saves ${fmtNum(props.solarSavings)} €${pctOf(props.solarSavings, totalCost + props.solarSavings)}`
   } else if (props.solarSavings <= -0.005) {
     // negative spot: grid power beats free solar, so self-consuming solar costs money
-    solarSub = `adds ${(-props.solarSavings).toFixed(2)} € (negative spot)`
+    solarSub = `adds ${fmtNum(-props.solarSavings)} € (negative spot)`
   }
 
   // net cost is what the optimizer actually ranks by — surface the current slot's value
-  const nowParts = [`spot ${props.spotNow.toFixed(2)}`, `net ${props.netCostNow.toFixed(2)}`]
-  if (props.transferEnabled) nowParts.push(`transfer ${props.transferNow.toFixed(2)}`)
+  const nowParts = [`spot ${fmtNum(props.spotNow)}`, `net ${fmtNum(props.netCostNow)}`]
+  if (props.transferEnabled) nowParts.push(`transfer ${fmtNum(props.transferNow)}`)
   let nowLine = `Now: ${nowParts.join(' · ')} c/kWh`
   if (props.solarEnabled) nowLine += ` · solar ${Math.round(props.solarNow)} W`
 
@@ -160,22 +163,22 @@ export function PlanCard(props: Props) {
             <Figure
               label="Done by"
               value={completionTime ? fmtWhen(completionTime) : '–'}
-              sub={`${props.hoursNeeded.toFixed(1)} h · ${props.kWhNeeded.toFixed(1)} kWh`}
+              sub={`${fmtNum(props.hoursNeeded, 1)} h · ${fmtNum(props.kWhNeeded, 1)} kWh`}
             />
             <Figure
               label="Est. cost"
-              value={`${totalCost.toFixed(2)} €`}
+              value={`${fmtNum(totalCost)} €`}
               sub={
-                `avg ${props.avgNetCost.toFixed(2)} c/kWh` +
+                `avg ${fmtNum(props.avgNetCost)} c/kWh` +
                 (props.transferEnabled
                   ? // "spot" = everything but transfer (spot + retailer margin, incl. solar opportunity cost)
-                    ` (spot ${(props.avgNetCost - props.avgTransfer).toFixed(2)} c/kWh, transfer ${props.avgTransfer.toFixed(2)} c/kWh)`
+                    ` (spot ${fmtNum(props.avgNetCost - props.avgTransfer)} c/kWh, transfer ${fmtNum(props.avgTransfer)} c/kWh)`
                   : '')
               }
             />
             <Figure
               label="vs charging now"
-              value={savingsVsNow >= 0.005 ? `−${savingsVsNow.toFixed(2)} €` : '–'}
+              value={savingsVsNow >= 0.005 ? `−${fmtNum(savingsVsNow)} €` : '–'}
               sub={
                 savingsVsNow < 0.005
                   ? 'no cheaper time ahead'
