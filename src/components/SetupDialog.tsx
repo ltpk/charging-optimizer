@@ -22,6 +22,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import { InfoTip, SectionLabel, FieldLabel } from './fields'
 import { chargeSpecs } from '../utils/optimization'
 import type { Params, GeoCoords, ApiStatus } from '../types'
+import { fmtNum } from './PlanCard'
 
 // set-once configuration — vehicle, grid contract, margins and solar — kept out of the
 // everyday sidebar so the controls you touch daily aren't buried under it
@@ -150,11 +151,11 @@ function ChargeSpecs({ params }: { params: Params }) {
         columnGap: 1.5,
       }}
     >
-      <SpecRow label="Charging speed" value={`${specs.chargingSpeed.toFixed(1)} % / hr`} />
-      <SpecRow label="Charging power" value={`${specs.chargingPower.toFixed(1)} kW`} />
-      {showGrid && <SpecRow label="Grid power" value={`${specs.gridPower.toFixed(1)} kW`} />}
-      <SpecRow label="Energy to battery" value={`${specs.energyToBattery.toFixed(1)} kWh`} />
-      {showGrid && <SpecRow label="Energy from grid" value={`${specs.energyFromGrid.toFixed(1)} kWh`} />}
+      <SpecRow label="Charging speed" value={`${fmtNum(specs.chargingSpeed, 1)} % / hr`} />
+      <SpecRow label="Charging power" value={`${fmtNum(specs.chargingPower, 1)} kW`} />
+      {showGrid && <SpecRow label="Grid power" value={`${fmtNum(specs.gridPower, 1)} kW`} />}
+      <SpecRow label="Energy to battery" value={`${fmtNum(specs.energyToBattery, 1)} kWh`} />
+      {showGrid && <SpecRow label="Energy from grid" value={`${fmtNum(specs.energyFromGrid, 1)} kWh`} />}
     </Box>
   )
 }

@@ -15,6 +15,7 @@ import { Chart } from 'react-chartjs-2'
 import type { Plugin, ScriptableLineSegmentContext, ChartOptions } from 'chart.js'
 import { isNightHour, getTransfer, SLOT_MS } from '../utils/optimization'
 import type { SlotEntry, Params } from '../types'
+import { fmtNum } from './PlanCard'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, LineController, PointElement, Tooltip, Filler)
 
@@ -313,6 +314,8 @@ export const PriceChart = memo(function PriceChart({
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
+    // decimal comma on axis ticks
+    locale: 'fi-FI',
     // headroom above the plot for the window start-time labels
     layout: { padding: { top: 20 } },
     plugins: {
@@ -327,10 +330,10 @@ export const PriceChart = memo(function PriceChart({
             const l = ctx.dataset.label ?? ''
             const v = ctx.parsed.y ?? 0
             const src = slotSources[ctx.dataIndex] ? 'actual' : 'forecast'
-            if (l === 'Net cost') return ` Net cost: ${v.toFixed(2)} c/kWh`
-            if (l === 'Spot price') return ` Spot (${src}): ${v.toFixed(2)} c/kWh`
-            if (l === 'Transfer fee') return ` Transfer: ${v.toFixed(2)} c/kWh`
-            if (l === 'Solar output') return ` Solar: ${v.toFixed(2)} kW`
+            if (l === 'Net cost') return ` Net cost: ${fmtNum(v)} c/kWh`
+            if (l === 'Spot price') return ` Spot (${src}): ${fmtNum(v)} c/kWh`
+            if (l === 'Transfer fee') return ` Transfer: ${fmtNum(v)} c/kWh`
+            if (l === 'Solar output') return ` Solar: ${fmtNum(v)} kW`
             return ''
           },
         },
