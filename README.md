@@ -142,3 +142,4 @@ Everyday parameters are set in the sidebar, set-once ones in the "Vehicle & pric
 | `api.spot-hinta.fi/dayforward`        | Tomorrow's prices (available ~14:15)                                        | Same                                                          |
 | `nordpool-predict-fi` prediction.json | Hourly ML forecast for unpriced hours                                       | 1 h TTL                                                       |
 | `api.open-meteo.com` GTI              | Global tilted irradiance → PV production estimate                           | Calendar day                                                  |
+| `gc.zgo.at` (GoatCounter)             | Cookie-less page-view counter, one hit per page load                        | —                                                             |
