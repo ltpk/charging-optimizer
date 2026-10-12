@@ -134,6 +134,11 @@ export function PlanCard(props: Props) {
             </Typography>
             <Chip label={status.label} color={status.color} variant="outlined" size="small" />
           </Box>
+          {!isFull && props.hoursNeeded > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              Charge for {fmtDuration(props.hoursNeeded * 3_600_000)} · {fmtNum(props.kWhNeeded, 1)} kWh
+            </Typography>
+          )}
           <Typography variant="h5" component="p">
             {status.title}
           </Typography>
@@ -160,11 +165,7 @@ export function PlanCard(props: Props) {
               ...(!props.solarEnabled && { '& > :last-of-type': { gridColumn: { xs: '1 / -1', sm: 'auto' } } }),
             }}
           >
-            <Figure
-              label="Done by"
-              value={completionTime ? fmtWhen(completionTime) : '–'}
-              sub={`${fmtNum(props.hoursNeeded, 1)} h · ${fmtNum(props.kWhNeeded, 1)} kWh`}
-            />
+            <Figure label="Done by" value={completionTime ? fmtWhen(completionTime) : '–'} />
             <Figure
               label="Est. cost"
               value={`${fmtNum(totalCost)} €`}
