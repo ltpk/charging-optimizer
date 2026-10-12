@@ -105,9 +105,11 @@ export function PlanCard(props: Props) {
   let sub = ''
   if (!isFull && firstSel && lastSel) {
     const end = new Date(lastSel.dt.getTime() + SLOT_MS)
+    // completion (not window end) is what the user waits for; it can land mid-way through the last slot
+    const done = completionTime ?? end
     sub = isGo
-      ? `Window runs until ${fmtWhen(end)} · ${fmtDuration(end.getTime() - now.getTime())} left`
-      : `in ${fmtDuration(Math.max(firstSel.dt.getTime() - now.getTime(), 0))}`
+      ? `Done by ${fmtWhen(done)} · ${fmtDuration(Math.max(done.getTime() - now.getTime(), 0))} left`
+      : `in ${fmtDuration(Math.max(firstSel.dt.getTime() - now.getTime(), 0))} · done by ${fmtWhen(done)}`
   }
 
   let solarSub: string | undefined
@@ -155,17 +157,16 @@ export function PlanCard(props: Props) {
               display: 'grid',
               gridTemplateColumns: {
                 xs: 'repeat(2, minmax(0, 1fr))',
-                sm: `repeat(${props.solarEnabled ? 4 : 3}, minmax(0, 1fr))`,
+                sm: `repeat(${props.solarEnabled ? 3 : 2}, minmax(0, 1fr))`,
               },
               gap: 2,
               pt: 2,
               borderTop: 1,
               borderColor: 'divider',
               // 3 figures in a 2-col grid leave an orphan slot on xs — stretch the last one across
-              ...(!props.solarEnabled && { '& > :last-of-type': { gridColumn: { xs: '1 / -1', sm: 'auto' } } }),
+              ...(props.solarEnabled && { '& > :last-of-type': { gridColumn: { xs: '1 / -1', sm: 'auto' } } }),
             }}
           >
-            <Figure label="Done by" value={completionTime ? fmtWhen(completionTime) : '–'} />
             <Figure
               label="Est. cost"
               value={`${fmtNum(totalCost)} €`}
