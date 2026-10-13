@@ -12,6 +12,7 @@ const baseParams: Params = {
   chargingPower: 5,
   horizonH: 24,
   chargeByEnabled: false,
+  transferEnabled: true,
   transferDay: 1,
   transferNight: 1,
   buyMargin: 0,
