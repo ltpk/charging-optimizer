@@ -101,7 +101,8 @@ export const PriceChart = memo(function PriceChart({
     time: [],
   })
   const showSel = !hidden.has('Charging window')
-  const showNight = !hidden.has('Night rate')
+  const hasNightRate = params.transferEnabled && !params.transferFixed
+  const showNight = hasNightRate && !hidden.has('Night rate')
   shadeRef.current = {
     sel: slots.map(h => showSel && selectedTs.has(h.ts)),
     night: slots.map(h => showNight && isNightHour(h.hour)),
@@ -419,7 +420,7 @@ export const PriceChart = memo(function PriceChart({
               : []),
             ...(solarEnabled ? [{ id: 'Solar output', color: alpha(S, 0.8), label: 'Solar output (kW)' }] : []),
             { id: 'Charging window', color: alpha(S, 0.28), label: 'Charging window', border: true },
-            { id: 'Night rate', color: nightBg, label: 'Night rate', border: true },
+            ...(hasNightRate ? [{ id: 'Night rate', color: nightBg, label: 'Night rate', border: true }] : []),
           ].map(({ id, color, label, border }) => (
             <ButtonBase
               key={id}
