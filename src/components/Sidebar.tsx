@@ -187,7 +187,7 @@ export function Sidebar({
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <HourField value={params.chargeByHour} onCommit={v => onParamChange('chargeByHour', v)} />
                   <Typography variant="body2" color="text.secondary">
-                    :00
+                    .00
                   </Typography>
                 </Box>
               </Box>

@@ -94,7 +94,7 @@ export const PriceChart = memo(function PriceChart({
     sel: slots.map(h => selectedTs.has(h.ts)),
     night: slots.map(h => isNightHour(h.hour)),
     hourStart: slots.map(h => h.dt.getMinutes() === 0),
-    time: slots.map(h => h.dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })),
+    time: slots.map(h => h.dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })),
   }
 
   const bgShadePlugin = useMemo<Plugin<'line'>>(
@@ -170,10 +170,10 @@ export const PriceChart = memo(function PriceChart({
 
   const showDate = horizonH > 24
   const fmtLabel = (dt: Date, first: boolean) => {
-    const t = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    const t = dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
     if (!showDate) return t
     if (dt.getHours() === 0 || first)
-      return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric' }) + ' ' + t
+      return dt.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' }) + ' ' + t
     return t
   }
   // One extra end-of-window label so the last slot's span has width on the axis
