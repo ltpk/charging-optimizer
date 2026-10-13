@@ -1,5 +1,5 @@
-import { memo, useRef, useMemo, useEffect } from 'react'
-import { Box, Card, CardContent, Typography, useMediaQuery } from '@mui/material'
+import { memo, useRef, useMemo, useEffect, useState } from 'react'
+import { Box, ButtonBase, Card, CardContent, Typography, useMediaQuery } from '@mui/material'
 import { useTheme, alpha } from '@mui/material/styles'
 import {
   Chart as ChartJS,
@@ -16,6 +16,7 @@ import type { Plugin, ScriptableLineSegmentContext, ChartOptions } from 'chart.j
 import { isNightHour, getTransfer, SLOT_MS } from '../utils/optimization'
 import type { SlotEntry, Params } from '../types'
 import { fmtNum } from './PlanCard'
+import { lsGet, lsSet, LS_CHART_HIDDEN } from '../utils/storage'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, LineController, PointElement, Tooltip, Filler)
 
@@ -45,6 +46,15 @@ export const PriceChart = memo(function PriceChart({
   const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
   const tickColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'
   const nightBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
+
+  // legend toggles, keyed by dataset/series label; persisted across reloads
+  const [hidden, setHidden] = useState(() => new Set(lsGet<string[]>(LS_CHART_HIDDEN) ?? []))
+  const toggle = (label: string) => {
+    const next = new Set(hidden)
+    if (!next.delete(label)) next.add(label)
+    setHidden(next)
+    lsSet(LS_CHART_HIDDEN, [...next])
+  }
 
   // Ref pattern: plugin is memoized once, reads latest values via ref
   const colorsRef = useRef({ W, P, S, gridColor, tickColor, nightBg, isDark })
@@ -90,9 +100,11 @@ export const PriceChart = memo(function PriceChart({
     hourStart: [],
     time: [],
   })
+  const showSel = !hidden.has('Charging window')
+  const showNight = !hidden.has('Night rate')
   shadeRef.current = {
-    sel: slots.map(h => selectedTs.has(h.ts)),
-    night: slots.map(h => isNightHour(h.hour)),
+    sel: slots.map(h => showSel && selectedTs.has(h.ts)),
+    night: slots.map(h => showNight && isNightHour(h.hour)),
     hourStart: slots.map(h => h.dt.getMinutes() === 0),
     time: slots.map(h => h.dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })),
   }
@@ -239,6 +251,7 @@ export const PriceChart = memo(function PriceChart({
       {
         type: 'line' as const,
         label: 'Net cost',
+        hidden: hidden.has('Net cost'),
         data: netCostData,
         borderColor: P,
         backgroundColor: alpha(P, 0.09),
@@ -258,6 +271,7 @@ export const PriceChart = memo(function PriceChart({
       {
         type: 'line' as const,
         label: 'Spot price',
+        hidden: hidden.has('Spot price'),
         data: spotData,
         borderColor: alpha(P, 0.4),
         borderWidth: 1,
@@ -277,6 +291,7 @@ export const PriceChart = memo(function PriceChart({
             {
               type: 'line' as const,
               label: 'Transfer fee',
+              hidden: hidden.has('Transfer fee'),
               data: transferData,
               borderColor: theme.palette.text.secondary,
               borderWidth: 1,
@@ -295,6 +310,7 @@ export const PriceChart = memo(function PriceChart({
             {
               type: 'line' as const,
               label: 'Solar output',
+              hidden: hidden.has('Solar output'),
               data: solarKw,
               borderColor: alpha(S, 0.8),
               backgroundColor: alpha(S, 0.09),
@@ -361,7 +377,7 @@ export const PriceChart = memo(function PriceChart({
         max: maxY,
       },
       y2: {
-        display: solarEnabled,
+        display: solarEnabled && !hidden.has('Solar output'),
         position: 'right',
         title: { display: true, text: 'kW', color: alpha(S, 0.8), font: { size: 11 } },
         ticks: { color: alpha(S, 0.7), font: { size: 11 } },
@@ -396,14 +412,31 @@ export const PriceChart = memo(function PriceChart({
 
         <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
           {[
-            { color: P, label: 'Net cost (c/kWh)' },
-            { color: alpha(P, 0.73), label: 'Spot (faded = forecast)' },
-            ...(transferEnabled ? [{ color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' }] : []),
-            ...(solarEnabled ? [{ color: alpha(S, 0.8), label: 'Solar output (kW)' }] : []),
-            { color: alpha(S, 0.28), label: 'Charging window', border: true },
-            { color: nightBg, label: 'Night rate', border: true },
-          ].map(({ color, label, border }) => (
-            <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.625 }}>
+            { id: 'Net cost', color: P, label: 'Net cost (c/kWh)' },
+            { id: 'Spot price', color: alpha(P, 0.73), label: 'Spot (faded = forecast)' },
+            ...(transferEnabled
+              ? [{ id: 'Transfer fee', color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' }]
+              : []),
+            ...(solarEnabled ? [{ id: 'Solar output', color: alpha(S, 0.8), label: 'Solar output (kW)' }] : []),
+            { id: 'Charging window', color: alpha(S, 0.28), label: 'Charging window', border: true },
+            { id: 'Night rate', color: nightBg, label: 'Night rate', border: true },
+          ].map(({ id, color, label, border }) => (
+            <ButtonBase
+              key={id}
+              onClick={() => toggle(id)}
+              aria-pressed={!hidden.has(id)}
+              title={hidden.has(id) ? 'Show' : 'Hide'}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.625,
+                borderRadius: 0.5,
+                px: 0.5,
+                mx: -0.5,
+                opacity: hidden.has(id) ? 0.45 : 1,
+                textDecoration: hidden.has(id) ? 'line-through' : 'none',
+              }}
+            >
               <Box
                 sx={{
                   width: 10,
@@ -417,7 +450,7 @@ export const PriceChart = memo(function PriceChart({
               <Typography variant="caption" color="text.secondary">
                 {label}
               </Typography>
-            </Box>
+            </ButtonBase>
           ))}
         </Box>
       </CardContent>
