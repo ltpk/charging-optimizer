@@ -24,7 +24,7 @@ import { chargeSpecs } from '../utils/optimization'
 import type { Params, GeoCoords, ApiStatus } from '../types'
 import { fmtNum } from './PlanCard'
 
-// set-once configuration — vehicle, grid contract, margins and solar — kept out of the
+// set-once configuration — vehicle, energy price, transfer fee and solar — kept out of the
 // everyday sidebar so the controls you touch daily aren't buried under it
 
 interface NumFieldProps {
@@ -273,6 +273,20 @@ export function SetupDialog({
 
         <Divider />
 
+        {/* Energy price */}
+        <Box>
+          <SectionLabel>Energy price</SectionLabel>
+          <NumField
+            label="Retailer margin (c/kWh, excl. VAT)"
+            info="Your retailer's added margin per kWh on top of spot, before VAT."
+            value={params.buyMargin}
+            step={0.01}
+            onCommit={p('buyMargin')}
+          />
+        </Box>
+
+        <Divider />
+
         {/* Transfer fee */}
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
@@ -338,29 +352,6 @@ export function SetupDialog({
 
         <Divider />
 
-        {/* Margins */}
-        <Box>
-          <SectionLabel>Margins</SectionLabel>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-            <NumField
-              label="Buy margin (c/kWh, excl. VAT)"
-              info="Your retailer's added margin per kWh on top of spot, before VAT."
-              value={params.buyMargin}
-              step={0.01}
-              onCommit={p('buyMargin')}
-            />
-            <NumField
-              label="Sell margin (c/kWh, from spot)"
-              info="Deducted from spot when valuing solar energy sold back to the grid."
-              value={params.sellMargin}
-              step={0.01}
-              onCommit={p('sellMargin')}
-            />
-          </Box>
-        </Box>
-
-        <Divider />
-
         {/* Solar PV */}
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
@@ -417,6 +408,13 @@ export function SetupDialog({
                 step={50}
                 min={0}
                 onCommit={p('solarBase')}
+              />
+              <NumField
+                label="Sell margin (c/kWh, from spot)"
+                info="Deducted from spot when valuing solar energy sold back to the grid."
+                value={params.sellMargin}
+                step={0.01}
+                onCommit={p('sellMargin')}
               />
 
               <Box>
