@@ -27,7 +27,7 @@ export const DEFAULT_PARAMS: Params = {
   chargeByEnabled: false,
   chargeByHour: 7,
   chargeByDay: 1,
-  transferEnabled: true,
+  transferEnabled: false,
   transferFixed: false,
   transferFee: 5.26,
   transferDay: 5.11,
