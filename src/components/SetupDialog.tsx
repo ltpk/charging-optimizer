@@ -19,7 +19,7 @@ import {
 import { useTheme } from '@mui/material/styles'
 import CloseIcon from '@mui/icons-material/Close'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
-import { InfoTip, SectionLabel, FieldLabel } from './fields'
+import { InfoTip, SectionLabel, FieldLabel, SliderField } from './fields'
 import { chargeSpecs } from '../utils/optimization'
 import type { Params, GeoCoords, ApiStatus } from '../types'
 import { fmtNum } from './PlanCard'
@@ -238,34 +238,35 @@ export function SetupDialog({
                 <ToggleButton value={3}>3-phase</ToggleButton>
               </ToggleButtonGroup>
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.25 }}>
-              <NumField
-                label="Current (A)"
-                info="Charge current per phase."
-                value={params.amperage}
-                step={1}
-                min={1}
-                max={32}
-                onCommit={p('amperage')}
-              />
-              <NumField
-                label="Voltage (V)"
-                info="Grid voltage — usually 230 V in Finland."
-                value={params.voltage}
-                step={1}
-                min={100}
-                max={400}
-                onCommit={p('voltage')}
-              />
-            </Box>
+            <SliderField
+              label="Current"
+              info="Charge current per phase."
+              value={params.amperage}
+              unit="A"
+              min={6}
+              max={32}
+              step={1}
+              marks={[6, 10, 16, 32].map(v => ({ value: v, label: String(v) }))}
+              onChange={p('amperage')}
+            />
             <NumField
-              label="Charging loss (%)"
+              label="Voltage (V)"
+              info="Grid voltage — usually 230 V in Finland."
+              value={params.voltage}
+              step={1}
+              min={100}
+              max={400}
+              onCommit={p('voltage')}
+            />
+            <SliderField
+              label="Charging loss"
               info="Energy lost as heat etc. — grid draw exceeds energy stored. Typically 5–15%."
               value={params.chargingLoss}
-              step={1}
+              unit="%"
               min={0}
-              max={50}
-              onCommit={p('chargingLoss')}
+              max={30}
+              step={1}
+              onChange={p('chargingLoss')}
             />
             <ChargeSpecs params={params} />
           </Box>
@@ -380,23 +381,31 @@ export function SetupDialog({
           </Box>
           {params.solarEnabled && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-              <NumField
-                label="Tilt angle (°, 0=horizontal)"
+              <SliderField
+                label="Tilt angle"
                 info="Panel angle from horizontal. 0° = flat, 90° = vertical."
                 value={params.solarDec}
-                step={1}
+                unit="°"
                 min={0}
                 max={90}
-                onCommit={p('solarDec')}
+                step={5}
+                onChange={p('solarDec')}
               />
-              <NumField
-                label="Azimuth (°, 0=N 90=E 180=S 270=W)"
+              <SliderField
+                label="Azimuth"
                 info="Compass direction the panels face. 180° = due south."
                 value={params.solarAz}
-                step={1}
+                unit="°"
                 min={0}
-                max={359}
-                onCommit={p('solarAz')}
+                max={355}
+                step={5}
+                marks={[
+                  { value: 0, label: 'N' },
+                  { value: 90, label: 'E' },
+                  { value: 180, label: 'S' },
+                  { value: 270, label: 'W' },
+                ]}
+                onChange={p('solarAz')}
               />
               <NumField
                 label="Peak power (kWp)"
@@ -407,13 +416,15 @@ export function SetupDialog({
                 max={30}
                 onCommit={p('solarKwp')}
               />
-              <NumField
-                label="Base consumption (W)"
+              <SliderField
+                label="Base consumption"
                 info="Other household load (fridge, standby, heat pump…) served by solar before any is left for charging. Only surplus solar offsets charging cost."
                 value={params.solarBase}
-                step={50}
+                unit="W"
                 min={0}
-                onCommit={p('solarBase')}
+                max={2000}
+                step={50}
+                onChange={p('solarBase')}
               />
               <NumField
                 label="Sell margin (c/kWh, from spot)"
