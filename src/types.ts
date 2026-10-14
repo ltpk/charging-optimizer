@@ -40,10 +40,12 @@ export interface Params {
   chargeByHour: number
   chargeByDay: number
   transferEnabled: boolean
-  transferFixed: boolean // true: single fixed fee; false: separate day/night fees
-  transferFee: number // fixed fee, used when transferFixed
-  transferDay: number
-  transferNight: number
+  transferMode: 'fixed' | 'daynight' | 'seasonal'
+  transferFee: number // fixed fee
+  transferDay: number // daynight: 07–22
+  transferNight: number // daynight: 22–07
+  transferWinterDay: number // seasonal: 1.11.–31.3. Mon–Sat 07–22
+  transferOther: number // seasonal: all other times
   electricityTax: number // sähkövero incl. VAT (c/kWh), billed with transfer
   buyMargin: number
   sellMargin: number

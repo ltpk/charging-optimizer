@@ -28,10 +28,12 @@ export const DEFAULT_PARAMS: Params = {
   chargeByHour: 7,
   chargeByDay: 1,
   transferEnabled: false,
-  transferFixed: false,
+  transferMode: 'daynight',
   transferFee: 5.26,
   transferDay: 5.11,
   transferNight: 3.12,
+  transferWinterDay: 6.73,
+  transferOther: 3.23,
   electricityTax: 2.92, // class I 2.325 c/kWh × ALV (from 1.4.2026)
   buyMargin: 0.54,
   sellMargin: 0.25,
@@ -83,10 +85,25 @@ export function isNightHour(hour: number): boolean {
   return hour >= 22 || hour < 7
 }
 
-export function getTransfer(p: Params, hour: number): number {
+// kausisiirto high-rate period (Caruna): 1.11.–31.3., Mon–Sat 07–22; public holidays aren't exempted
+export function isWinterDay(dt: Date): boolean {
+  const m = dt.getMonth()
+  return (m >= 10 || m <= 2) && dt.getDay() !== 0 && !isNightHour(dt.getHours())
+}
+
+export function getTransfer(p: Params, dt: Date): number {
   if (!p.transferEnabled) return 0
-  // sähkövero is billed by the DSO with transfer, flat day and night
-  const fee = p.transferFixed ? p.transferFee : isNightHour(hour) ? p.transferNight : p.transferDay
+  const fee =
+    p.transferMode === 'fixed'
+      ? p.transferFee
+      : p.transferMode === 'seasonal'
+        ? isWinterDay(dt)
+          ? p.transferWinterDay
+          : p.transferOther
+        : isNightHour(dt.getHours())
+          ? p.transferNight
+          : p.transferDay
+  // sähkövero is billed by the DSO with transfer, flat at all times
   return fee + p.electricityTax
 }
 
@@ -105,11 +122,11 @@ function slotCapacity(dt: Date, now: Date): number {
   return (end - now.getTime()) / 3_600_000
 }
 
-export function calcNetCost(p: Params, spotCent: number, hour: number, solarW: number): number {
+export function calcNetCost(p: Params, spotCent: number, dt: Date, solarW: number): number {
   const share = solarShare(p, solarW)
   // grid pays for the non-solar fraction; the solar fraction is "free" energy but carries the
   // opportunity cost of the export revenue you forgo by self-consuming it (added, not subtracted)
-  const buyPrice = (1 - share) * (spotCent + getTransfer(p, hour) + p.buyMargin * ALV)
+  const buyPrice = (1 - share) * (spotCent + getTransfer(p, dt) + p.buyMargin * ALV)
   const sellPrice = Math.max(0, spotCent / ALV - p.sellMargin)
   return buyPrice + share * sellPrice
 }
@@ -133,7 +150,7 @@ export function optimize(
     .filter(h => h.dt >= pastCutoff && h.dt <= horizonCutoff)
     .map(h => {
       const solarW = params.solarEnabled ? getSolarForDt(solarData, h.dt) : 0
-      return { ...h, netCost: calcNetCost(params, h.spotCent, h.hour, solarW), solarW }
+      return { ...h, netCost: calcNetCost(params, h.spotCent, h.dt, solarW), solarW }
     })
 
   if (!slots.length) return null
@@ -201,10 +218,10 @@ export function optimize(
     const startMs = Math.max(h.dt.getTime(), now.getTime())
     const used = Math.min(slotCapacity(h.dt, now), remaining)
     costSum += used * h.netCost
-    gridSum += used * calcNetCost(params, h.spotCent, h.hour, 0)
+    gridSum += used * calcNetCost(params, h.spotCent, h.dt, 0)
     shareSum += used * solarShare(params, h.solarW)
     // only grid-drawn energy pays the transfer fee — the solar fraction doesn't
-    transferSum += used * (1 - solarShare(params, h.solarW)) * getTransfer(params, h.hour)
+    transferSum += used * (1 - solarShare(params, h.solarW)) * getTransfer(params, h.dt)
     remaining -= used
     completionTime = new Date(startMs + used * 3_600_000)
     if (remaining <= EPS) break

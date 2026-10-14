@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { ALV, DEFAULT_PARAMS, SLOT_MS, calcNetCost, isNightHour, optimize } from './optimization'
+import {
+  ALV,
+  DEFAULT_PARAMS,
+  SLOT_MS,
+  calcNetCost,
+  getTransfer,
+  isNightHour,
+  isWinterDay,
+  optimize,
+} from './optimization'
 import type { Params, PriceEntry, SolarData } from '../types'
 
 // 0→100% of 10 kWh, no loss, 5 kW → exactly 2.0 h needed; flat 1 c/kWh transfer, no margins
@@ -22,6 +31,7 @@ const baseParams: Params = {
 }
 
 const NOON = new Date(2026, 5, 10, 12, 0) // local Wed 2026-06-10 12:00
+const at = (hour: number) => new Date(2026, 5, 10, hour)
 
 function entry(dt: Date, spotCent: number): PriceEntry {
   return { dt, spotCent, hour: dt.getHours(), ts: dt.toISOString().slice(0, 16), source: 'actual' }
@@ -54,27 +64,47 @@ describe('isNightHour', () => {
   })
 })
 
+describe('seasonal transfer', () => {
+  const p: Params = { ...baseParams, transferMode: 'seasonal', transferWinterDay: 7, transferOther: 3 }
+
+  test('winter rate only Nov–Mar, Mon–Sat 07–22', () => {
+    expect(isWinterDay(new Date(2026, 10, 2, 7))).toBe(true) // Mon 2.11. 07:00
+    expect(isWinterDay(new Date(2026, 2, 31, 21, 45))).toBe(true) // Tue 31.3. 21:45
+    expect(isWinterDay(new Date(2026, 10, 2, 22))).toBe(false) // 22:00
+    expect(isWinterDay(new Date(2026, 10, 1, 12))).toBe(false) // Sunday
+    expect(isWinterDay(new Date(2026, 3, 1, 12))).toBe(false) // April
+    expect(getTransfer(p, new Date(2026, 0, 7, 12))).toBe(7)
+    expect(getTransfer(p, at(12))).toBe(3) // June
+  })
+
+  test('electricity tax is added in every mode', () => {
+    const taxed = { ...p, electricityTax: 2 }
+    expect(getTransfer(taxed, at(12))).toBe(5)
+    expect(getTransfer({ ...taxed, transferMode: 'fixed', transferFee: 4 }, at(12))).toBe(6)
+  })
+})
+
 describe('calcNetCost', () => {
   const p: Params = { ...baseParams, transferDay: 5, transferNight: 3, buyMargin: 0.5, sellMargin: 0.25 }
 
   test('grid-only: spot + transfer + VAT-inclusive margin', () => {
-    expect(calcNetCost(p, 10, 12, 0)).toBeCloseTo(10 + 5 + 0.5 * ALV, 10)
-    expect(calcNetCost(p, 10, 23, 0)).toBeCloseTo(10 + 3 + 0.5 * ALV, 10)
+    expect(calcNetCost(p, 10, at(12), 0)).toBeCloseTo(10 + 5 + 0.5 * ALV, 10)
+    expect(calcNetCost(p, 10, at(23), 0)).toBeCloseTo(10 + 3 + 0.5 * ALV, 10)
   })
 
   test('full solar coverage: pay nothing for grid, but forgo the export revenue', () => {
     const full = p.chargingPower * 1000
     // self-consuming solar to charge means giving up the sell-back value — an opportunity cost
-    expect(calcNetCost(p, 10, 12, full)).toBeCloseTo(10 / ALV - 0.25, 10)
+    expect(calcNetCost(p, 10, at(12), full)).toBeCloseTo(10 / ALV - 0.25, 10)
   })
 
   test('solar share is clamped at 100%', () => {
     const full = p.chargingPower * 1000
-    expect(calcNetCost(p, 10, 12, full * 2)).toBeCloseTo(calcNetCost(p, 10, 12, full), 10)
+    expect(calcNetCost(p, 10, at(12), full * 2)).toBeCloseTo(calcNetCost(p, 10, at(12), full), 10)
   })
 
   test('sell price floors at zero on negative spot', () => {
-    expect(calcNetCost(p, -1, 12, p.chargingPower * 1000)).toBeCloseTo(0, 10)
+    expect(calcNetCost(p, -1, at(12), p.chargingPower * 1000)).toBeCloseTo(0, 10)
   })
 
   test('base consumption eats solar before any is available for charging', () => {
@@ -84,9 +114,9 @@ describe('calcNetCost', () => {
     const share = 0.6
     const buy = (1 - share) * (10 + 5 + 0.5 * ALV)
     const sell = 10 / ALV - 0.25
-    expect(calcNetCost(pb, 10, 12, full)).toBeCloseTo(buy + share * sell, 10)
+    expect(calcNetCost(pb, 10, at(12), full)).toBeCloseTo(buy + share * sell, 10)
     // base ≥ production → no solar surplus, falls back to grid-only cost
-    expect(calcNetCost({ ...p, solarBase: full }, 10, 12, full)).toBeCloseTo(calcNetCost(p, 10, 12, 0), 10)
+    expect(calcNetCost({ ...p, solarBase: full }, 10, at(12), full)).toBeCloseTo(calcNetCost(p, 10, at(12), 0), 10)
   })
 })
 

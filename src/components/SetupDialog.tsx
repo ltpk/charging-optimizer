@@ -313,24 +313,40 @@ export function SetupDialog({
           {params.transferEnabled && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
               <ToggleButtonGroup
-                value={params.transferFixed}
+                value={params.transferMode}
                 exclusive
                 fullWidth
                 size="small"
-                onChange={(_, v: boolean | null) => {
-                  if (v != null) onParamChange('transferFixed', v)
+                onChange={(_, v: Params['transferMode'] | null) => {
+                  if (v != null) onParamChange('transferMode', v)
                 }}
               >
-                <ToggleButton value={true}>Fixed</ToggleButton>
-                <ToggleButton value={false}>Day / Night</ToggleButton>
+                <ToggleButton value="fixed">Fixed</ToggleButton>
+                <ToggleButton value="daynight">Day / Night</ToggleButton>
+                <ToggleButton value="seasonal">Seasonal</ToggleButton>
               </ToggleButtonGroup>
-              {params.transferFixed ? (
+              {params.transferMode === 'fixed' ? (
                 <NumField
                   label="Transfer fee (c/kWh)"
                   value={params.transferFee}
                   step={0.01}
                   onCommit={p('transferFee')}
                 />
+              ) : params.transferMode === 'seasonal' ? (
+                <>
+                  <NumField
+                    label="Winter weekday (c/kWh, 1.11.–31.3. Mon–Sat 07–22)"
+                    value={params.transferWinterDay}
+                    step={0.01}
+                    onCommit={p('transferWinterDay')}
+                  />
+                  <NumField
+                    label="Other times (c/kWh)"
+                    value={params.transferOther}
+                    step={0.01}
+                    onCommit={p('transferOther')}
+                  />
+                </>
               ) : (
                 <>
                   <NumField

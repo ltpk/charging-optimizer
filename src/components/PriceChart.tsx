@@ -101,7 +101,7 @@ export const PriceChart = memo(function PriceChart({
     time: [],
   })
   const showSel = !hidden.has('Charging window')
-  const hasNightRate = params.transferEnabled && !params.transferFixed
+  const hasNightRate = params.transferEnabled && params.transferMode === 'daynight'
   const showNight = hasNightRate && !hidden.has('Night rate')
   shadeRef.current = {
     sel: slots.map(h => showSel && selectedTs.has(h.ts)),
@@ -219,7 +219,7 @@ export const PriceChart = memo(function PriceChart({
   // the Metrics box on .xx5 prices (4.685 → 4.68 vs 4.69)
   const netCostData = slots.map(h => h.netCost)
   const spotData = slots.map(h => h.spotCent)
-  const transferData = slots.map(h => getTransfer(params, h.hour))
+  const transferData = slots.map(h => getTransfer(params, h.dt))
   // solar slots repeat their hour's average — interpolate between hour centers so the
   // curve reads as the smooth daily profile instead of an hourly staircase
   const hourAvgW = new Map<string, number>()

@@ -39,7 +39,12 @@ import type { Params, PriceEntry, SolarData, GeoCoords, ApiStatus, OptimizeResul
 
 type ColorMode = 'light' | 'dark' | 'system'
 
-const mergedParams: Params = { ...DEFAULT_PARAMS, ...(lsGet<Partial<Params>>(LS_PARAMS) ?? {}) }
+const rawParams = lsGet<Partial<Params> & { transferFixed?: boolean }>(LS_PARAMS) ?? {}
+// transferFixed (boolean) became transferMode — carry an old choice over
+if (rawParams.transferFixed !== undefined && !rawParams.transferMode)
+  rawParams.transferMode = rawParams.transferFixed ? 'fixed' : 'daynight'
+delete rawParams.transferFixed
+const mergedParams: Params = { ...DEFAULT_PARAMS, ...rawParams }
 // chargingPower is derived from the electrical inputs — heal any stale stored value on load
 const storedParams: Params = { ...mergedParams, chargingPower: gridPower(mergedParams) }
 const storedGeo = lsGet<GeoCoords>(LS_GEO)
@@ -546,7 +551,7 @@ export default function App() {
                     savingsVsNow={result.savingsVsNow}
                     spotNow={result.currentSlot.spotCent}
                     netCostNow={result.currentSlot.netCost}
-                    transferNow={getTransfer(params, result.currentSlot.hour)}
+                    transferNow={getTransfer(params, result.currentSlot.dt)}
                     transferEnabled={params.transferEnabled}
                     solarEnabled={params.solarEnabled}
                     solarNow={result.solarNow}
