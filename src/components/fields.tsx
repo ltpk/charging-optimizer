@@ -32,9 +32,10 @@ interface SliderFieldProps {
   step: number
   onChange: (v: number) => void
   info?: string
+  marks?: { value: number; label?: string }[]
 }
 
-export function SliderField({ label, value, unit, min, max, step, onChange, info }: SliderFieldProps) {
+export function SliderField({ label, value, unit, min, max, step, onChange, info, marks }: SliderFieldProps) {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -51,6 +52,7 @@ export function SliderField({ label, value, unit, min, max, step, onChange, info
         min={min}
         max={max}
         step={step}
+        marks={marks}
         size="small"
         aria-label={label}
         onChange={(_, v) => onChange(v as number)}
