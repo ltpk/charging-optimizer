@@ -397,14 +397,13 @@ export function SetupDialog({
                 value={params.solarAz}
                 unit="°"
                 min={0}
-                max={360}
+                max={355}
                 step={5}
                 marks={[
                   { value: 0, label: 'N' },
                   { value: 90, label: 'E' },
                   { value: 180, label: 'S' },
                   { value: 270, label: 'W' },
-                  { value: 360, label: 'N' },
                 ]}
                 track={false}
                 onChange={p('solarAz')}
