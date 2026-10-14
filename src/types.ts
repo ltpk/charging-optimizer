@@ -44,6 +44,7 @@ export interface Params {
   transferFee: number // fixed fee, used when transferFixed
   transferDay: number
   transferNight: number
+  electricityTax: number // sähkövero incl. VAT (c/kWh), billed with transfer
   buyMargin: number
   sellMargin: number
   solarDec: number

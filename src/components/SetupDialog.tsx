@@ -290,7 +290,7 @@ export function SetupDialog({
         {/* Transfer fee */}
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-            <SectionLabel info="Grid distribution fee (siirto) per kWh, separate from the energy price.">
+            <SectionLabel info="Grid distribution fee (siirto) per kWh, separate from the energy price. Electricity tax (sähkövero, incl. VAT) is billed with it and added on top.">
               Transfer Fee
             </SectionLabel>
             <FormControlLabel
@@ -346,6 +346,12 @@ export function SetupDialog({
                   />
                 </>
               )}
+              <NumField
+                label="Electricity tax (c/kWh)"
+                value={params.electricityTax}
+                step={0.01}
+                onCommit={p('electricityTax')}
+              />
             </Box>
           )}
         </Box>

@@ -32,6 +32,7 @@ export const DEFAULT_PARAMS: Params = {
   transferFee: 5.26,
   transferDay: 5.11,
   transferNight: 3.12,
+  electricityTax: 2.92, // class I 2.325 c/kWh × ALV (from 1.4.2026)
   buyMargin: 0.54,
   sellMargin: 0.25,
   solarDec: 30,
@@ -84,8 +85,9 @@ export function isNightHour(hour: number): boolean {
 
 export function getTransfer(p: Params, hour: number): number {
   if (!p.transferEnabled) return 0
-  if (p.transferFixed) return p.transferFee
-  return isNightHour(hour) ? p.transferNight : p.transferDay
+  // sähkövero is billed by the DSO with transfer, flat day and night
+  const fee = p.transferFixed ? p.transferFee : isNightHour(hour) ? p.transferNight : p.transferDay
+  return fee + p.electricityTax
 }
 
 function solarShare(p: Params, solarW: number): number {

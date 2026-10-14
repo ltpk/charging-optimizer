@@ -15,6 +15,7 @@ const baseParams: Params = {
   transferEnabled: true,
   transferDay: 1,
   transferNight: 1,
+  electricityTax: 0,
   buyMargin: 0,
   sellMargin: 0,
   solarEnabled: false,
@@ -129,6 +130,10 @@ describe('optimize', () => {
     expect(r.avgTransfer).toBeCloseTo(1, 10) // flat 1 c/kWh
     const off = optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, { ...baseParams, transferEnabled: false }, NOON)!
     expect(off.avgTransfer).toBe(0)
+    const taxed = optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, { ...baseParams, electricityTax: 2 }, NOON)!
+    expect(taxed.avgTransfer).toBeCloseTo(3, 10) // electricity tax rides on transfer
+    const taxOff = { ...baseParams, transferEnabled: false, electricityTax: 2 }
+    expect(optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, taxOff, NOON)!.avgTransfer).toBe(0)
   })
 
   test('the window catches a sub-hour price dip', () => {
