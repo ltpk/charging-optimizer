@@ -33,9 +33,10 @@ interface SliderFieldProps {
   onChange: (v: number) => void
   info?: string
   marks?: { value: number; label?: string }[]
+  track?: false // no fill for circular values like a compass direction
 }
 
-export function SliderField({ label, value, unit, min, max, step, onChange, info, marks }: SliderFieldProps) {
+export function SliderField({ label, value, unit, min, max, step, onChange, info, marks, track }: SliderFieldProps) {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -53,6 +54,7 @@ export function SliderField({ label, value, unit, min, max, step, onChange, info
         max={max}
         step={step}
         marks={marks}
+        track={track}
         size="small"
         aria-label={label}
         onChange={(_, v) => onChange(v as number)}
