@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Box, Card, CardContent, Chip, Typography } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { SLOT_MS } from '../utils/optimization'
+import { MONO, overline } from '../theme'
 import type { SlotEntry } from '../types'
 
 // Finnish decimal comma for displayed numbers
 export const fmtNum = (n: number, digits = 2) => n.toFixed(digits).replace('.', ',')
 
-const fmtTime = (dt: Date) => dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
+export const fmtTime = (dt: Date) => dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
 
 // time plus a day hint when it isn't today ("tomorrow" / "7.10.")
 function fmtWhen(dt: Date): string {
@@ -23,51 +24,78 @@ function fmtDuration(ms: number): string {
   return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`
 }
 
+// live h:mm:ss countdown
+function fmtClock(ms: number): string {
+  const s = Math.max(0, Math.round(ms / 1000))
+  return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+}
+
 export interface PlanStatus {
-  color: 'success' | 'warning' | 'info'
+  /** ev palette key: wait = blue, go = green, muted = battery full, warn only for problems */
+  tone: 'go' | 'wait' | 'warn' | 'muted'
+  /** the huge verdict word */
   label: string
-  /** big headline, e.g. "Start at 02:15 tomorrow" */
+  /** line under the verdict, e.g. "Start at 02:15 tomorrow" */
   title: string
-  /** compact form for the sticky app-bar pill */
+  /** compact form for the sticky header pill */
   short: string
 }
 
 export function planStatus(isGo: boolean, isFull: boolean, firstSel?: SlotEntry, lastSel?: SlotEntry): PlanStatus {
-  if (isFull) return { color: 'info', label: 'Battery full', title: 'Nothing to charge', short: 'Battery full' }
-  if (!firstSel) return { color: 'warning', label: 'Wait', title: 'No charging window', short: 'No window' }
+  if (isFull) return { tone: 'muted', label: 'Battery full', title: 'Nothing to charge', short: 'Battery full' }
+  if (!firstSel) return { tone: 'warn', label: 'No window', title: 'No charging window', short: 'No window' }
   if (isGo && lastSel) {
     const end = new Date(lastSel.dt.getTime() + SLOT_MS)
-    return { color: 'success', label: 'Charge now', title: 'Charge now', short: `Charge now → ${fmtTime(end)}` }
+    return { tone: 'go', label: 'Charge now', title: 'Charge now', short: `Charge now → ${fmtTime(end)}` }
   }
   return {
-    color: 'warning',
+    tone: 'wait',
     label: 'Wait',
     title: `Start at ${fmtWhen(firstSel.dt)}`,
     short: `Start ${fmtTime(firstSel.dt)}`,
   }
 }
 
-function Figure({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Stat({
+  label,
+  value,
+  sub,
+  color,
+  big,
+}: {
+  label: string
+  value: string
+  sub?: string
+  color?: string
+  big?: boolean
+}) {
   return (
-    <Box sx={{ minWidth: 0 }}>
-      <Typography variant="overline" color="text.secondary" sx={{ display: 'block', lineHeight: 1.6 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <Box component="span" sx={{ ...overline, mb: 0.5 }}>
         {label}
-      </Typography>
-      <Typography variant="h6" sx={{ fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>
+      </Box>
+      <Box
+        component="span"
+        sx={{
+          fontFamily: MONO,
+          fontVariantNumeric: 'tabular-nums',
+          fontWeight: 600,
+          letterSpacing: '-0.03em',
+          lineHeight: 1.05,
+          color: color ?? 'text.primary',
+          fontSize: big ? { xs: 26, sm: 34 } : { xs: 22, sm: 26 },
+        }}
+      >
         {value}
-      </Typography>
+      </Box>
       {sub && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+        <Box component="span" sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }}>
           {sub}
-        </Typography>
+        </Box>
       )}
     </Box>
   )
 }
-
-// a percent of a baseline that negative spot can drive to ~0, where the percent explodes — € only then
-const pctOf = (part: number, baseline: number) =>
-  baseline >= 0.01 ? ` (${((part / baseline) * 100).toFixed(0)} %)` : ''
 
 interface Props {
   isGo: boolean
@@ -76,130 +104,120 @@ interface Props {
   lastSel?: SlotEntry
   hoursNeeded: number
   kWhNeeded: number
+  chargingPower: number
   completionTime: Date | null
   totalCost: number
-  avgTransfer: number
   avgNetCost: number
   savingsVsNow: number
-  spotNow: number
-  netCostNow: number
-  transferNow: number
-  transferEnabled: boolean
   solarEnabled: boolean
-  solarNow: number
   solarPct: number
   solarSavings: number
 }
 
-// the answer first: when to charge, when it's done, what it costs — then the supporting figures
+// the answer first: a huge verdict, when it starts / ends, then the supporting figures
 export function PlanCard(props: Props) {
   const { isGo, isFull, firstSel, lastSel, completionTime, totalCost, savingsVsNow } = props
+  // 1 s tick for the countdown — local to the hero so the rest of the app doesn't re-render
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000)
+    const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
 
   const status = planStatus(isGo, isFull, firstSel, lastSel)
+  const tone = status.tone === 'muted' ? 'text.secondary' : `ev.${status.tone}`
+  const planned = !isFull && !!firstSel && !!lastSel
+  // completion (not window end) is what the user waits for; it can land mid-way through the last slot
+  const done = completionTime ?? (lastSel ? new Date(lastSel.dt.getTime() + SLOT_MS) : now)
+  const startsInMs = firstSel ? firstSel.dt.getTime() - now.getTime() : 0
+  const leftMs = done.getTime() - now.getTime()
 
   let sub = ''
-  if (!isFull && firstSel && lastSel) {
-    const end = new Date(lastSel.dt.getTime() + SLOT_MS)
-    // completion (not window end) is what the user waits for; it can land mid-way through the last slot
-    const done = completionTime ?? end
+  if (planned) {
     sub = isGo
-      ? `Done by ${fmtWhen(done)} · ${fmtDuration(Math.max(done.getTime() - now.getTime(), 0))} left`
-      : `in ${fmtDuration(Math.max(firstSel.dt.getTime() - now.getTime(), 0))} · done by ${fmtWhen(done)}`
+      ? `Done by ${fmtWhen(done)} · ${fmtDuration(Math.max(leftMs, 0))} left`
+      : `in ${fmtDuration(Math.max(startsInMs, 0))} · done by ${fmtWhen(done)}`
+    sub += ` · ${fmtDuration(props.hoursNeeded * 3_600_000)} of charging at ${fmtNum(props.chargingPower, 1)} kW`
   }
 
-  let solarSub: string | undefined
-  if (props.solarSavings >= 0.005) {
-    solarSub = `saves ${fmtNum(props.solarSavings)} €${pctOf(props.solarSavings, totalCost + props.solarSavings)}`
-  } else if (props.solarSavings <= -0.005) {
-    // negative spot: grid power beats free solar, so self-consuming solar costs money
-    solarSub = `adds ${fmtNum(-props.solarSavings)} € (negative spot)`
-  }
+  let solarSub = 'no solar in window'
+  if (props.solarSavings >= 0.005) solarSub = `saves ${fmtNum(props.solarSavings)} €`
+  // negative spot: grid power beats free solar, so self-consuming solar costs money
+  else if (props.solarSavings <= -0.005) solarSub = `adds ${fmtNum(-props.solarSavings)} € (negative spot)`
 
-  // net cost is what the optimizer actually ranks by — surface the current slot's value
-  const nowParts = [`spot ${fmtNum(props.spotNow)} c/kWh`]
-  if (props.transferEnabled) nowParts.push(`transfer ${fmtNum(props.transferNow)} c/kWh`)
-  nowParts.push(`net ${fmtNum(props.netCostNow)} c/kWh`)
-  let nowLine = `Now: ${nowParts.join(' · ')}`
-  if (props.solarEnabled) nowLine += ` · solar ${Math.round(props.solarNow)} W`
+  const baseline = totalCost + savingsVsNow
+  const saves = savingsVsNow >= 0.005
 
   return (
-    <Card variant="outlined">
-      <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, '&:last-child': { pb: 2 } }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Typography variant="overline" color="text.secondary">
-              Charging plan
-            </Typography>
-            <Chip label={status.label} color={status.color} variant="outlined" size="small" />
-          </Box>
-          {!isFull && props.hoursNeeded > 0 && (
-            <Typography variant="body2" color="text.secondary">
-              Charge for {fmtDuration(props.hoursNeeded * 3_600_000)} · {fmtNum(props.kWhNeeded, 1)} kWh
-            </Typography>
+    <Box
+      component="section"
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: 'minmax(320px, 1fr) auto' },
+        gap: 3.5,
+        alignItems: 'end',
+        pb: 1,
+      }}
+    >
+      <Box sx={{ minWidth: 0 }}>
+        <Box sx={overline}>
+          Charging plan{planned && props.hoursNeeded > 0 ? ` · ${fmtNum(props.kWhNeeded, 1)} kWh` : ''}
+        </Box>
+        <Typography
+          component="h2"
+          sx={{
+            fontWeight: 700,
+            letterSpacing: '-0.035em',
+            lineHeight: 0.95,
+            fontSize: { xs: 48, sm: 76 },
+            color: tone,
+            mt: 0.25,
+            mb: 1,
+          }}
+        >
+          {status.label}
+        </Typography>
+        <Typography sx={{ fontWeight: 600, letterSpacing: '-0.01em', fontSize: { xs: 19, sm: 24 } }}>
+          {isGo && planned ? `Until ${fmtWhen(done)}` : status.title}
+        </Typography>
+        {sub && (
+          <Typography sx={{ color: 'text.secondary', mt: 0.75, fontSize: 14, lineHeight: 1.5 }}>{sub}</Typography>
+        )}
+      </Box>
+
+      {planned && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr 1fr', sm: `repeat(${props.solarEnabled ? 4 : 3}, auto)` },
+            gap: { xs: '18px 24px', sm: '18px 32px' },
+            alignItems: 'start',
+          }}
+        >
+          {isGo ? (
+            <Stat label="Time left" value={fmtClock(leftMs)} color={tone} big />
+          ) : (
+            <Stat label="Starts in" value={fmtClock(startsInMs)} color={tone} big />
           )}
-          <Typography variant="h5" component="p">
-            {status.title}
-          </Typography>
-          {sub && (
-            <Typography variant="body2" color="text.secondary">
-              {sub}
-            </Typography>
+          <Stat label="Est. cost" value={`${fmtNum(totalCost)} €`} sub={`avg ${fmtNum(props.avgNetCost)} c/kWh`} big />
+          <Stat
+            label="vs charging now"
+            value={saves ? `−${fmtNum(savingsVsNow)} €` : '–'}
+            color={saves ? 'ev.go' : 'text.secondary'}
+            sub={
+              !saves
+                ? 'no cheaper time ahead'
+                : // negative spot can drive the baseline through zero, where the percent explodes
+                  baseline >= 0.01
+                  ? `${((savingsVsNow / baseline) * 100).toFixed(0)} % cheaper by waiting`
+                  : 'cheaper by waiting'
+            }
+          />
+          {props.solarEnabled && (
+            <Stat label="Solar covers" value={`${props.solarPct.toFixed(0)} %`} color="ev.solar" sub={solarSub} />
           )}
         </Box>
-
-        {!isFull && (
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: 'repeat(2, minmax(0, 1fr))',
-                sm: `repeat(${props.solarEnabled ? 3 : 2}, minmax(0, 1fr))`,
-              },
-              gap: 2,
-              pt: 2,
-              borderTop: 1,
-              borderColor: 'divider',
-              // 3 figures in a 2-col grid leave an orphan slot on xs — stretch the last one across
-              ...(props.solarEnabled && { '& > :last-of-type': { gridColumn: { xs: '1 / -1', sm: 'auto' } } }),
-            }}
-          >
-            <Figure
-              label="Est. cost"
-              value={`${fmtNum(totalCost)} €`}
-              sub={
-                `avg ${fmtNum(props.avgNetCost)} c/kWh` +
-                (props.transferEnabled
-                  ? // "spot" = everything but transfer (spot + retailer margin, incl. solar opportunity cost)
-                    ` (spot ${fmtNum(props.avgNetCost - props.avgTransfer)} c/kWh, transfer ${fmtNum(props.avgTransfer)} c/kWh)`
-                  : '')
-              }
-            />
-            <Figure
-              label="vs charging now"
-              value={savingsVsNow >= 0.005 ? `−${fmtNum(savingsVsNow)} €` : '–'}
-              sub={
-                savingsVsNow < 0.005
-                  ? 'no cheaper time ahead'
-                  : totalCost + savingsVsNow >= 0.01
-                    ? `${((savingsVsNow / (totalCost + savingsVsNow)) * 100).toFixed(0)} % cheaper by waiting`
-                    : 'cheaper by waiting'
-              }
-            />
-            {props.solarEnabled && (
-              <Figure label="Solar covers" value={`${props.solarPct.toFixed(0)} %`} sub={solarSub} />
-            )}
-          </Box>
-        )}
-
-        <Typography variant="caption" color="text.secondary" sx={{ borderTop: 1, borderColor: 'divider', pt: 1 }}>
-          {nowLine}
-        </Typography>
-      </CardContent>
-    </Card>
+      )}
+    </Box>
   )
 }
