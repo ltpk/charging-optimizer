@@ -1,5 +1,7 @@
 import { memo, useRef, useMemo, useEffect, useState } from 'react'
-import { Box, ButtonBase, Card, CardContent, Typography, useMediaQuery } from '@mui/material'
+import type { ReactNode } from 'react'
+import { Box, Button, FormControlLabel, Popover, Switch } from '@mui/material'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import { useTheme, alpha } from '@mui/material/styles'
 import {
   Chart as ChartJS,
@@ -15,208 +17,236 @@ import { Chart } from 'react-chartjs-2'
 import type { Plugin, ScriptableLineSegmentContext, ChartOptions } from 'chart.js'
 import { isNightHour, getTransfer, SLOT_MS } from '../utils/optimization'
 import type { SlotEntry, Params } from '../types'
-import { fmtNum } from './PlanCard'
-import { lsGet, lsSet, LS_CHART_HIDDEN } from '../utils/storage'
+import { fmtNum, fmtTime } from './PlanCard'
+import { panelSx } from './Controls'
+import { MONO, overline } from '../theme'
+import { lsGet, lsSet, LS_CHART_LAYERS } from '../utils/storage'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, LineController, PointElement, Tooltip, Filler)
+
+type Layer = 'spot' | 'transfer' | 'solar' | 'night'
+const DEFAULT_LAYERS: Record<Layer, boolean> = { spot: false, transfer: false, solar: true, night: false }
 
 interface Props {
   slots: SlotEntry[]
   selectedTs: Set<string>
   nowIdx: number
   slotSources: boolean[]
+  completionTime: Date | null
   horizonH: number
   params: Params
+  /** < 760 px: shorter chart in a horizontal scroller */
+  narrow: boolean
 }
 
+const fmtDate = (dt: Date) => dt.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' })
+
+// one rule for every price line: solid = actual, dashed = forecast, faded = past
 export const PriceChart = memo(function PriceChart({
   slots,
   selectedTs,
   nowIdx,
   slotSources,
+  completionTime,
   horizonH,
   params,
+  narrow,
 }: Props) {
   const theme = useTheme()
-  const isNarrow = useMediaQuery(theme.breakpoints.down('sm'))
+  const t = theme.palette.ev
   const isDark = theme.palette.mode === 'dark'
-  const P = theme.palette.primary.main
-  const S = theme.palette.success.main
-  const W = theme.palette.warning.main
-  const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
-  const tickColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'
-  const nightBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
 
-  // legend toggles, keyed by dataset/series label; persisted across reloads
-  const [hidden, setHidden] = useState(() => new Set(lsGet<string[]>(LS_CHART_HIDDEN) ?? []))
-  const toggle = (label: string) => {
-    const next = new Set(hidden)
-    if (!next.delete(label)) next.add(label)
-    setHidden(next)
-    lsSet(LS_CHART_HIDDEN, [...next])
+  const [layers, setLayers] = useState<Record<Layer, boolean>>(() => ({
+    ...DEFAULT_LAYERS,
+    ...lsGet<Partial<Record<Layer, boolean>>>(LS_CHART_LAYERS),
+  }))
+  const setLayer = (k: Layer, v: boolean) => {
+    const next = { ...layers, [k]: v }
+    setLayers(next)
+    lsSet(LS_CHART_LAYERS, next)
   }
+  const [layersAnchor, setLayersAnchor] = useState<HTMLElement | null>(null)
 
-  // Ref pattern: plugin is memoized once, reads latest values via ref
-  const colorsRef = useRef({ W, P, S, gridColor, tickColor, nightBg, isDark })
-  colorsRef.current = { W, P, S, gridColor, tickColor, nightBg, isDark }
-  // Ticks mark slot starts; the now-line sits at the elapsed fraction of the current slot
-  const nowPos =
-    nowIdx >= 0 ? nowIdx + Math.min(Math.max((Date.now() - slots[nowIdx].dt.getTime()) / SLOT_MS, 0), 1) : -1
-  const nowPosRef = useRef(-1)
-  nowPosRef.current = nowPos
+  // layers that can't apply to the current setup are disabled, not just hidden
+  const avail: Record<Layer, boolean> = {
+    spot: true,
+    transfer: params.transferEnabled,
+    solar: params.solarEnabled,
+    night: params.transferEnabled && !params.transferFixed,
+  }
+  const on = (k: Layer) => layers[k] && avail[k]
 
-  const nowLinePlugin = useMemo<Plugin<'line'>>(
-    () => ({
-      id: 'nowLine',
-      afterDraw(chart) {
-        const idx = nowPosRef.current
-        if (idx < 0) return
-        const { W } = colorsRef.current
-        const { ctx, chartArea, scales } = chart
-        const x = scales['x'].getPixelForValue(idx)
-        ctx.save()
-        ctx.beginPath()
-        ctx.moveTo(x, chartArea.top)
-        ctx.lineTo(x, chartArea.bottom)
-        ctx.strokeStyle = alpha(W, 0.8)
-        ctx.lineWidth = 1.5
-        ctx.setLineDash([4, 3])
-        ctx.stroke()
-        ctx.setLineDash([])
-        ctx.fillStyle = W
-        ctx.font = '600 11px sans-serif'
-        ctx.fillText('now', x + 3, chartArea.bottom - 4)
-        ctx.restore()
-      },
-    }),
-    [],
-  )
-
-  // Slot i shades the span from tick i to tick i+1; drawn as rects so it aligns
-  // with slot starts instead of bar cells centered on the ticks
-  const shadeRef = useRef<{ sel: boolean[]; night: boolean[]; hourStart: boolean[]; time: string[] }>({
-    sel: [],
-    night: [],
-    hourStart: [],
-    time: [],
+  const nowMs = Date.now()
+  // ticks mark slot starts; the now-line sits at the elapsed fraction of the current slot
+  const nowPos = nowIdx >= 0 ? nowIdx + Math.min(Math.max((nowMs - slots[nowIdx].dt.getTime()) / SLOT_MS, 0), 1) : -1
+  // minutes of charging per slot: the current slot starts at now, the last ends at completion
+  const doneMs = completionTime?.getTime() ?? Infinity
+  const selMin = slots.map(h => {
+    if (!selectedTs.has(h.ts)) return 0
+    const start = Math.max(h.dt.getTime(), nowMs)
+    const end = Math.min(h.dt.getTime() + SLOT_MS, doneMs)
+    return Math.max(0, (end - start) / 60_000)
   })
-  const showSel = !hidden.has('Charging window')
-  const hasNightRate = params.transferEnabled && !params.transferFixed
-  const showNight = hasNightRate && !hidden.has('Night rate')
-  shadeRef.current = {
-    sel: slots.map(h => showSel && selectedTs.has(h.ts)),
-    night: slots.map(h => showNight && isNightHour(h.hour)),
+
+  // plugins are memoized once and read the latest values from this ref (no stale closures)
+  const drawRef = useRef({
+    t,
+    isDark,
+    nowPos,
+    netNow: 0,
+    selFrom: [] as number[],
+    selTo: [] as number[],
+    hourStart: [] as boolean[],
+    midnight: [] as boolean[],
+    night: [] as boolean[],
+    time: [] as string[],
+    solar: false,
+  })
+  drawRef.current = {
+    t,
+    isDark,
+    nowPos,
+    netNow: nowIdx >= 0 ? slots[nowIdx].netCost : 0,
+    // selected span of each slot in slot units (partial first/last slot drawn at its fraction)
+    selFrom: slots.map((h, i) => (selMin[i] > 0 ? i + Math.max(0, nowMs - h.dt.getTime()) / SLOT_MS : -1)),
+    selTo: slots.map((h, i) =>
+      selMin[i] > 0 ? i + Math.min(1, (Math.min(doneMs, h.dt.getTime() + SLOT_MS) - h.dt.getTime()) / SLOT_MS) : -1,
+    ),
     hourStart: slots.map(h => h.dt.getMinutes() === 0),
-    time: slots.map(h => h.dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })),
+    midnight: slots.map(h => h.dt.getHours() === 0 && h.dt.getMinutes() === 0),
+    night: slots.map(h => on('night') && isNightHour(h.hour)),
+    time: slots.map(h => fmtTime(h.dt)),
+    solar: on('solar'),
   }
 
-  const bgShadePlugin = useMemo<Plugin<'line'>>(
+  const bgPlugin = useMemo<Plugin<'line'>>(
     () => ({
       id: 'bgShade',
       beforeDatasetsDraw(chart) {
-        const { sel, night, hourStart, time } = shadeRef.current
-        const { S, nightBg, tickColor } = colorsRef.current
-        const { ctx, chartArea, scales } = chart
-        const x = scales['x']
-        const clampL = (px: number) => Math.max(px, chartArea.left)
-        const clampR = (px: number) => Math.min(px, chartArea.right)
+        const { t, isDark, selFrom, selTo, hourStart, midnight, night, time, solar } = drawRef.current
+        const { ctx, chartArea: a, scales } = chart
+        const x = (v: number) => Math.min(Math.max(scales['x'].getPixelForValue(v), a.left), a.right)
+        const h = a.bottom - a.top
         ctx.save()
 
-        // night shading: merge contiguous slots into single rects (avoids hairline seams)
-        let runStart = -1
-        for (let i = 0; i <= night.length; i++) {
-          if (i < night.length && night[i]) {
-            if (runStart < 0) runStart = i
-            continue
-          }
-          if (runStart >= 0) {
-            const left = clampL(x.getPixelForValue(runStart))
-            const right = clampR(x.getPixelForValue(i))
-            if (right > left) {
-              ctx.fillStyle = nightBg
-              ctx.fillRect(left, chartArea.top, right - left, chartArea.bottom - chartArea.top)
-            }
-            runStart = -1
-          }
-        }
-
-        // selected window: gaps only at hour boundaries inside a contiguous run, so the
-        // window reads as per-hour bars while its outer edges stay flush with the slot ticks
-        for (let i = 0; i < sel.length; i++) {
-          if (!sel[i]) continue
-          const left = clampL(x.getPixelForValue(i))
-          const right = clampR(x.getPixelForValue(i + 1))
-          if (right <= left) continue
-          const inset = Math.min(2, (right - left) * 0.4)
-          const l = left + (sel[i - 1] && hourStart[i] ? inset : 0)
-          const r = right - (sel[i + 1] && hourStart[i + 1] ? inset : 0)
-          ctx.fillStyle = alpha(S, 0.28)
-          ctx.fillRect(l, chartArea.top, r - l, chartArea.bottom - chartArea.top)
-          // solid cap along the top edge so the window reads even where the lines cover the fill
-          ctx.fillStyle = S
-          ctx.fillRect(left, chartArea.top - 3, right - left, 3)
-        }
-
-        // label each contiguous window run with its start time, above the plot area
-        ctx.font = '600 11px sans-serif'
-        ctx.fillStyle = tickColor
+        // axis units above each y axis
+        ctx.font = `9.5px ${MONO}`
         ctx.textBaseline = 'bottom'
-        let lastLabelEnd = -Infinity
-        for (let i = 0; i < sel.length; i++) {
-          if (!sel[i] || sel[i - 1]) continue
-          const px = x.getPixelForValue(i)
-          if (px < chartArea.left || px > chartArea.right) continue
-          const w = ctx.measureText(time[i]).width
-          const lx = Math.min(px, chartArea.right - w)
-          if (lx < lastLabelEnd + 6) continue // skip a label that would collide with the previous one
-          ctx.fillText(time[i], lx, chartArea.top - 5)
-          lastLabelEnd = lx + w
+        ctx.fillStyle = t.micro
+        ctx.textAlign = 'left'
+        ctx.fillText('c/kWh', scales['y'].left, a.top - 10)
+        if (solar) {
+          ctx.fillStyle = t.solar
+          ctx.textAlign = 'left'
+          ctx.fillText('kW', a.right + 6, a.top - 10)
         }
+        ctx.textAlign = 'left'
+
+        // night rate: merge contiguous slots into single rects (avoids hairline seams)
+        ctx.fillStyle = t.nightBg
+        for (let i = 0, start = -1; i <= night.length; i++) {
+          if (i < night.length && night[i]) {
+            if (start < 0) start = i
+          } else if (start >= 0) {
+            ctx.fillRect(x(start), a.top, x(i) - x(start), h)
+            start = -1
+          }
+        }
+
+        // midnight rules
+        ctx.fillStyle = t.line
+        midnight.forEach((m, i) => m && ctx.fillRect(Math.round(x(i)), a.top, 1, h))
+
+        // charging window: 1 px gaps at hour boundaries inside the run, flush outer edges, 3 px cap on top
+        for (let i = 0; i < selFrom.length; i++) {
+          if (selFrom[i] < 0) continue
+          const l = x(selFrom[i]) + (selFrom[i - 1] >= 0 && hourStart[i] ? 0.5 : 0)
+          const r = x(selTo[i]) - (selFrom[i + 1] >= 0 && hourStart[i + 1] ? 0.5 : 0)
+          if (r <= l) continue
+          ctx.fillStyle = alpha(t.go, isDark ? 0.16 : 0.13)
+          ctx.fillRect(l, a.top, r - l, h)
+          ctx.fillStyle = t.go
+          ctx.fillRect(x(selFrom[i]), a.top - 3, x(selTo[i]) - x(selFrom[i]), 3)
+        }
+        // start time above the block (always one contiguous window)
+        const first = selFrom.findIndex(v => v >= 0)
+        if (first >= 0) {
+          ctx.font = `600 10.5px ${MONO}`
+          ctx.fillStyle = t.go
+          const w = ctx.measureText(time[first]).width
+          ctx.fillText(time[first], Math.min(x(selFrom[first]), a.right - w), a.top - 8)
+        }
+        ctx.restore()
+      },
+      // now marker carries the current price: dashed line, dot on the net-cost line, pill label
+      afterDatasetsDraw(chart) {
+        const { t, nowPos, netNow } = drawRef.current
+        if (nowPos < 0) return
+        const { ctx, chartArea: a, scales } = chart
+        const x = scales['x'].getPixelForValue(nowPos)
+        const y = scales['y'].getPixelForValue(netNow)
+        ctx.save()
+        ctx.globalAlpha = 0.6
+        ctx.strokeStyle = t.text
+        ctx.lineWidth = 1
+        ctx.setLineDash([2, 3])
+        ctx.beginPath()
+        ctx.moveTo(x, a.top)
+        ctx.lineTo(x, a.bottom)
+        ctx.stroke()
+        ctx.globalAlpha = 1
+        ctx.setLineDash([])
+        ctx.beginPath()
+        ctx.arc(x, y, 4, 0, Math.PI * 2)
+        ctx.fillStyle = t.text
+        ctx.fill()
+        ctx.lineWidth = 2
+        ctx.strokeStyle = t.panel
+        ctx.stroke()
+        const label = `now ${fmtNum(netNow)}`
+        ctx.font = `600 10.5px ${MONO}`
+        const w = ctx.measureText(label).width + 12
+        // flip to the left of the line near the right edge
+        const lx = x + 7 + w > a.right ? x - 7 - w : x + 7
+        const ly = Math.max(y - 22, a.top)
+        ctx.fillStyle = t.text
+        ctx.beginPath()
+        ctx.roundRect(lx, ly, w, 17, 4)
+        ctx.fill()
+        ctx.fillStyle = t.panel
+        ctx.textBaseline = 'middle'
+        ctx.fillText(label, lx + 6, ly + 9)
         ctx.restore()
       },
     }),
     [],
   )
 
-  const solarEnabled = params.solarEnabled
-  const transferEnabled = params.transferEnabled
-
-  const showDate = horizonH > 24
-  const fmtLabel = (dt: Date, first: boolean) => {
-    const t = dt.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })
-    if (!showDate) return t
-    if (dt.getHours() === 0 || first)
-      return dt.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' }) + ' ' + t
-    return t
-  }
   // One extra end-of-window label so the last slot's span has width on the axis
   const dts = slots.map(h => h.dt)
   if (slots.length > 0) dts.push(new Date(slots[slots.length - 1].dt.getTime() + SLOT_MS))
-  const labels = dts.map((dt, i) => fmtLabel(dt, i === 0))
-
-  // axis labels/gridlines only at hour starts, thinned to ≤ ~12 clock-aligned labels;
-  // the scrolled narrow chart has a fixed px/hour, so thin by label width instead
-  const labelStepH = isNarrow ? (showDate ? 3 : 2) : Math.max(1, Math.ceil(dts.length / 4 / 12))
+  // hour labels every 3 h (6 h on the long horizon); midnight shows the date instead
+  const labelStepH = !narrow && horizonH > 48 ? 6 : 3
+  const labels = dts.map(dt => (dt.getHours() === 0 && dt.getMinutes() === 0 ? fmtDate(dt) : fmtTime(dt)))
   const tickShow = dts.map(dt => dt.getMinutes() === 0 && dt.getHours() % labelStepH === 0)
+  // vertical gridlines every 3 h, even where the 6 h label step leaves the tick unlabelled
+  const gridShow = dts.map(dt => dt.getMinutes() === 0 && dt.getHours() % 3 === 0)
 
-  // on phones the full horizon doesn't fit legibly — give the chart a fixed width
-  // (~26 px per hour) inside a horizontal scroller and start the view at the now-line
-  const chartMinWidth = isNarrow ? Math.round((dts.length / 4) * 26) : undefined
+  // on phones the full horizon doesn't fit legibly — fixed ~26 px per hour inside a horizontal scroller
+  const chartMinWidth = narrow ? Math.round((dts.length / 4) * 26) : undefined
   const scrollRef = useRef<HTMLDivElement>(null)
   const dtsLen = dts.length
   useEffect(() => {
     const el = scrollRef.current
-    if (!el || !isNarrow || nowPosRef.current < 0) return
-    const frac = nowPosRef.current / Math.max(dtsLen - 1, 1)
-    // keep ~48 px of past context visible left of the now-line
-    el.scrollLeft = Math.max(frac * el.scrollWidth - 48, 0)
+    if (!el || !narrow || nowPos < 0) return
+    // keep ~40 px of past context visible left of the now-line
+    el.scrollLeft = Math.max((nowPos / Math.max(dtsLen - 1, 1)) * el.scrollWidth - 40, 0)
     // scroll only when the layout mode or horizon changes — not on data refreshes, which
     // would yank the position while the user is panning
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNarrow, horizonH])
+  }, [narrow, horizonH])
 
-  // keep raw values — rounding here and again in the tooltip can disagree with
-  // the Metrics box on .xx5 prices (4.685 → 4.68 vs 4.69)
+  // keep raw values — rounding here and again in the tooltip can disagree on .xx5 prices
   const netCostData = slots.map(h => h.netCost)
   const spotData = slots.map(h => h.spotCent)
   const transferData = slots.map(h => getTransfer(params, h.hour))
@@ -236,90 +266,82 @@ export const PriceChart = memo(function PriceChart({
   for (const arr of [netCostData, spotData, transferData, solarKw]) {
     if (arr.length > 0) arr.push(arr[arr.length - 1])
   }
-  const maxY = Math.max(...netCostData, ...spotData, ...transferData, 1) * 1.2
-  const minY = Math.min(0, ...netCostData, ...spotData) * 1.1
-  const maxY2 = Math.max(...solarKw, 1) * 1.5
+  const shown = [...netCostData, ...(on('spot') ? spotData : []), ...(on('transfer') ? transferData : [])]
+  const rawMax = Math.max(...shown, 1)
+  const step = rawMax > 30 ? 10 : 5
+  const maxY = Math.ceil((rawMax * 1.08) / step) * step
+  const minY = Math.floor(Math.min(0, ...shown) / step) * step
+  const maxY2 = Math.max(...solarKw, 1) * 1.4
 
-  const segBorder = (ctx: ScriptableLineSegmentContext, actual: string, predicted: string, past: string) => {
-    const i = ctx.p0DataIndex
-    if (nowIdx >= 0 && i < nowIdx) return past
-    return slotSources[i] ? actual : predicted
-  }
+  // past → faded, forecast → dashed, actual → solid
+  const segColor = (color: string) => (ctx: ScriptableLineSegmentContext) =>
+    nowIdx >= 0 && ctx.p0DataIndex < nowIdx ? alpha(color, 0.35) : color
+  const segDash = (ctx: ScriptableLineSegmentContext) => (slotSources[ctx.p0DataIndex] ? undefined : [5, 4])
 
   const data = {
     labels,
     datasets: [
       {
-        type: 'line' as const,
         label: 'Net cost',
-        hidden: hidden.has('Net cost'),
         data: netCostData,
-        borderColor: P,
-        backgroundColor: alpha(P, 0.09),
+        borderColor: t.text,
         borderWidth: 2,
         pointRadius: 0,
+        pointHoverRadius: 3.5,
+        pointHoverBackgroundColor: t.text,
+        pointHoverBorderColor: t.panel,
+        pointHoverBorderWidth: 1.5,
         // prices are constant within a slot — step instead of smoothing through the jumps
         stepped: 'before' as const,
         yAxisID: 'y',
-        fill: true,
         order: 1,
-        segment: {
-          borderColor: (ctx: ScriptableLineSegmentContext) => segBorder(ctx, P, alpha(P, 0.53), alpha(P, 0.27)),
-          backgroundColor: (ctx: ScriptableLineSegmentContext) =>
-            segBorder(ctx, alpha(P, 0.09), alpha(P, 0.05), alpha(P, 0.03)),
-        },
+        segment: { borderColor: segColor(t.text), borderDash: segDash },
       },
-      {
-        type: 'line' as const,
-        label: 'Spot price',
-        hidden: hidden.has('Spot price'),
-        data: spotData,
-        borderColor: alpha(P, 0.4),
-        borderWidth: 1,
-        pointRadius: 0,
-        stepped: 'before' as const,
-        yAxisID: 'y',
-        fill: false,
-        order: 2,
-        segment: {
-          borderColor: (ctx: ScriptableLineSegmentContext) =>
-            segBorder(ctx, alpha(P, 0.73), alpha(P, 0.4), alpha(P, 0.2)),
-          borderDash: (ctx: ScriptableLineSegmentContext) => (slotSources[ctx.p0DataIndex] ? [] : [2, 3]),
-        },
-      },
-      ...(transferEnabled
+      ...(on('spot')
         ? [
             {
-              type: 'line' as const,
-              label: 'Transfer fee',
-              hidden: hidden.has('Transfer fee'),
-              data: transferData,
-              borderColor: theme.palette.text.secondary,
-              borderWidth: 1,
+              label: 'Spot',
+              data: spotData,
+              borderColor: t.muted,
+              borderWidth: 1.2,
               pointRadius: 0,
-              tension: 0,
+              pointHoverRadius: 0,
               stepped: 'before' as const,
               yAxisID: 'y',
-              fill: false,
-              order: 3,
-              borderDash: [4, 3],
+              order: 2,
+              segment: { borderColor: segColor(t.muted), borderDash: segDash },
             },
           ]
         : []),
-      ...(solarEnabled
+      ...(on('transfer')
         ? [
             {
-              type: 'line' as const,
-              label: 'Solar output',
-              hidden: hidden.has('Solar output'),
+              label: 'Transfer',
+              data: transferData,
+              borderWidth: 0,
+              backgroundColor: alpha(t.text, isDark ? 0.07 : 0.06),
+              pointRadius: 0,
+              pointHoverRadius: 0,
+              stepped: 'before' as const,
+              fill: 'origin' as const,
+              yAxisID: 'y',
+              order: 4,
+            },
+          ]
+        : []),
+      ...(on('solar')
+        ? [
+            {
+              label: 'Solar',
               data: solarKw,
-              borderColor: alpha(S, 0.8),
-              backgroundColor: alpha(S, 0.09),
+              borderColor: t.solar,
+              backgroundColor: alpha(t.solar, 0.12),
               borderWidth: 1.5,
               pointRadius: 0,
+              pointHoverRadius: 0,
               tension: 0.4,
+              fill: 'origin' as const,
               yAxisID: 'y2',
-              fill: true,
               order: 3,
             },
           ]
@@ -327,31 +349,46 @@ export const PriceChart = memo(function PriceChart({
     ],
   }
 
+  const pad = (k: string) => k.padEnd(13)
+  const tickFont = { family: MONO, size: 10 }
+
   const options: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
     // decimal comma on axis ticks
     locale: 'fi-FI',
-    // headroom above the plot for the window start-time labels
-    layout: { padding: { top: 20 } },
+    // headroom above the plot for the axis units, window cap and start time
+    layout: { padding: { top: 26 } },
+    interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
       tooltip: {
-        mode: 'index',
-        intersect: false,
-        filter: item => item.dataIndex < slots.length,
+        // one tooltip per slot, built from the net-cost item
+        filter: item => item.datasetIndex === 0 && item.dataIndex < slots.length,
+        backgroundColor: t.panel,
+        borderColor: t.line,
+        borderWidth: 1,
+        cornerRadius: 8,
+        padding: { x: 10, y: 8 },
+        titleColor: t.text,
+        bodyColor: t.muted,
+        titleFont: { family: MONO, size: 11, weight: 600 },
+        bodyFont: { family: MONO, size: 11 },
+        displayColors: false,
         callbacks: {
-          title: ctx => ctx[0]?.label ?? '',
-          label: ctx => {
-            const l = ctx.dataset.label ?? ''
-            const v = ctx.parsed.y ?? 0
-            const src = slotSources[ctx.dataIndex] ? 'actual' : 'forecast'
-            if (l === 'Net cost') return ` Net cost: ${fmtNum(v)} c/kWh`
-            if (l === 'Spot price') return ` Spot (${src}): ${fmtNum(v)} c/kWh`
-            if (l === 'Transfer fee') return ` Transfer: ${fmtNum(v)} c/kWh`
-            if (l === 'Solar output') return ` Solar: ${fmtNum(v)} kW`
-            return ''
+          title: ([item]) => {
+            const s = slots[item.dataIndex]
+            return `${fmtDate(s.dt)} ${fmtTime(s.dt)} · ${slotSources[item.dataIndex] ? 'actual' : 'forecast'}`
+          },
+          label: item => {
+            const i = item.dataIndex
+            const s = slots[i]
+            const rows = [`${pad('net')}${fmtNum(s.netCost)} c`, `${pad('spot')}${fmtNum(s.spotCent)} c`]
+            if (params.transferEnabled) rows.push(`${pad('transfer+tax')}${fmtNum(transferData[i])} c`)
+            if (on('solar')) rows.push(`${pad('solar')}${fmtNum(solarKw[i])} kW`)
+            if (selMin[i] > 0) rows.push(`${pad('charging')}${Math.round(selMin[i])} min`)
+            return rows
           },
         },
       },
@@ -360,101 +397,157 @@ export const PriceChart = memo(function PriceChart({
       x: {
         offset: false,
         ticks: {
-          color: tickColor,
-          font: { size: 11 },
+          color: t.micro,
+          font: tickFont,
           maxRotation: 0,
           autoSkip: false,
-          // returning null hides the tick and its gridline — only hour-start ticks show
-          callback: (_v, i) => (tickShow[i] ? labels[i] : null),
+          // null hides the tick and its gridline; '' keeps the gridline without a label
+          callback: (_v, i) => (tickShow[i] ? labels[i] : gridShow[i] ? '' : null),
         },
-        grid: { color: gridColor, offset: false },
+        grid: { color: t.grid, offset: false },
+        border: { color: t.grid },
       },
       y: {
         position: 'left',
-        title: { display: true, text: 'c/kWh', color: tickColor, font: { size: 11 } },
-        ticks: { color: tickColor, font: { size: 11 } },
-        grid: { color: gridColor },
+        ticks: { color: t.micro, font: tickFont, stepSize: step },
+        grid: { color: t.grid },
+        border: { display: false },
         min: minY,
         max: maxY,
       },
       y2: {
-        display: solarEnabled && !hidden.has('Solar output'),
+        display: on('solar'),
         position: 'right',
-        title: { display: true, text: 'kW', color: alpha(S, 0.8), font: { size: 11 } },
-        ticks: { color: alpha(S, 0.7), font: { size: 11 } },
+        ticks: { color: t.solar, font: tickFont, maxTicksLimit: 3, precision: 0 },
         grid: { drawOnChartArea: false },
+        border: { display: false },
         min: 0,
         max: maxY2,
       },
     },
   }
 
-  return (
-    <Card variant="outlined">
-      <CardContent>
-        <Typography variant="overline" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
-          Price &amp; charging window
-        </Typography>
+  const legend = (label: string, swatch: ReactNode) => (
+    <Box
+      key={label}
+      component="span"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0.75,
+        fontFamily: MONO,
+        fontSize: 11.5,
+        fontWeight: 500,
+        color: 'text.secondary',
+      }}
+    >
+      {swatch}
+      {label}
+    </Box>
+  )
+  const line = (color: string, style = 'solid') => (
+    <Box component="i" sx={{ width: 16, borderTop: `2px ${style} ${color}` }} />
+  )
 
-        <Box ref={scrollRef} sx={{ overflowX: 'auto' }}>
-          <Box
+  return (
+    <Box component="section" sx={{ ...panelSx, pb: 1.25 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 1.25,
+          mb: 1.25,
+        }}
+      >
+        <Box component="span" sx={overline}>
+          Price &amp; charging window · next {horizonH} h
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, flexWrap: 'wrap' }}>
+          {legend('actual', line(t.text))}
+          {legend('forecast', line(t.text, 'dashed'))}
+          {legend(
+            'charging',
+            <Box component="i" sx={{ width: 10, height: 10, bgcolor: alpha(t.go, 0.5), borderRadius: '2px' }} />,
+          )}
+          {on('solar') && legend('solar kW', line(t.solar))}
+          <Button
+            size="small"
+            variant="outlined"
+            color="inherit"
+            endIcon={<ArrowDropDownIcon />}
+            onClick={e => setLayersAnchor(e.currentTarget)}
+            aria-haspopup="true"
             sx={{
-              position: 'relative',
-              height: isNarrow ? 240 : 280,
-              // allow horizontal panning of the scroller on the narrow layout
-              touchAction: isNarrow ? 'pan-x pan-y' : 'pan-y',
-              minWidth: chartMinWidth,
+              borderColor: 'divider',
+              minHeight: 28,
+              py: 0.25,
+              pl: 1.25,
+              pr: 0.75,
+              fontSize: 12,
+              '& .MuiButton-endIcon': { ml: 0 },
             }}
           >
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <Chart type="line" data={data as any} options={options} plugins={[bgShadePlugin, nowLinePlugin]} />
-          </Box>
-        </Box>
-
-        <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
-          {[
-            { id: 'Net cost', color: P, label: 'Net cost (c/kWh)' },
-            { id: 'Spot price', color: alpha(P, 0.73), label: 'Spot (faded = forecast)' },
-            ...(transferEnabled
-              ? [{ id: 'Transfer fee', color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' }]
-              : []),
-            ...(solarEnabled ? [{ id: 'Solar output', color: alpha(S, 0.8), label: 'Solar output (kW)' }] : []),
-            { id: 'Charging window', color: alpha(S, 0.28), label: 'Charging window', border: true },
-            ...(hasNightRate ? [{ id: 'Night rate', color: nightBg, label: 'Night rate', border: true }] : []),
-          ].map(({ id, color, label, border }) => (
-            <ButtonBase
-              key={id}
-              onClick={() => toggle(id)}
-              aria-pressed={!hidden.has(id)}
-              title={hidden.has(id) ? 'Show' : 'Hide'}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.625,
-                borderRadius: 0.5,
-                px: 0.5,
-                mx: -0.5,
-                opacity: hidden.has(id) ? 0.45 : 1,
-                textDecoration: hidden.has(id) ? 'line-through' : 'none',
-              }}
-            >
-              <Box
-                sx={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: 0.25,
-                  bgcolor: color,
-                  flexShrink: 0,
-                  ...(border && { border: '1px solid', borderColor: 'divider' }),
-                }}
+            Layers
+          </Button>
+          {/* Popover closes on outside click / Esc */}
+          <Popover
+            open={!!layersAnchor}
+            anchorEl={layersAnchor}
+            onClose={() => setLayersAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{
+              paper: {
+                sx: {
+                  mt: 0.75,
+                  minWidth: 190,
+                  p: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.25,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: '10px',
+                  boxShadow: t.shadow,
+                },
+              },
+            }}
+          >
+            {(
+              [
+                ['spot', 'Spot price'],
+                ['transfer', 'Transfer + tax'],
+                ['solar', 'Solar output'],
+                ['night', 'Night rate'],
+              ] as const
+            ).map(([k, label]) => (
+              <FormControlLabel
+                key={k}
+                disabled={!avail[k]}
+                control={<Switch checked={on(k)} onChange={e => setLayer(k, e.target.checked)} />}
+                label={label}
               />
-              <Typography variant="caption" color="text.secondary">
-                {label}
-              </Typography>
-            </ButtonBase>
-          ))}
+            ))}
+          </Popover>
         </Box>
-      </CardContent>
-    </Card>
+      </Box>
+
+      <Box ref={scrollRef} sx={{ overflowX: narrow ? 'auto' : 'hidden' }}>
+        <Box
+          sx={{
+            position: 'relative',
+            height: narrow ? 260 : 380,
+            // allow horizontal panning of the scroller on the narrow layout
+            touchAction: narrow ? 'pan-x pan-y' : 'pan-y',
+            minWidth: chartMinWidth,
+          }}
+        >
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <Chart type="line" data={data as any} options={options} plugins={[bgPlugin]} />
+        </Box>
+      </Box>
+    </Box>
   )
 })

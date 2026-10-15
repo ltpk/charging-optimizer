@@ -1,7 +1,8 @@
-import { Box, Slider, Tooltip, Typography } from '@mui/material'
+import { Box, Slider, Tooltip } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import { MONO, overline } from '../theme'
 
-// shared field helpers used by the Sidebar, SetupDialog and the mobile battery card
+// shared field helpers used by the controls panel and the Setup drawer
 
 export function InfoTip({ text }: { text: string }) {
   return (
@@ -34,19 +35,36 @@ interface SliderFieldProps {
   info?: string
   marks?: { value: number; label?: string }[]
   track?: false // no fill for circular values like a compass direction
+  /** small muted label (Setup fields) instead of the overline (daily controls) */
+  small?: boolean
 }
 
-export function SliderField({ label, value, unit, min, max, step, onChange, info, marks, track }: SliderFieldProps) {
+export function SliderField({
+  label,
+  value,
+  unit,
+  min,
+  max,
+  step,
+  onChange,
+  info,
+  marks,
+  track,
+  small,
+}: SliderFieldProps) {
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="body2" color="text.secondary">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1 }}>
+        <Box component="span" sx={small ? { fontSize: 12, fontWeight: 500, color: 'text.secondary' } : overline}>
           {label}
           {info && <InfoTip text={info} />}
-        </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-          {value} {unit}
-        </Typography>
+        </Box>
+        <Box component="span" sx={{ fontFamily: MONO, fontSize: small ? 13 : 15, fontWeight: 600 }}>
+          {value}
+          <Box component="small" sx={{ fontSize: 11, color: 'ev.micro', ml: '1px' }}>
+            {unit}
+          </Box>
+        </Box>
       </Box>
       <Slider
         value={value}
@@ -55,30 +73,9 @@ export function SliderField({ label, value, unit, min, max, step, onChange, info
         step={step}
         marks={marks}
         track={track}
-        size="small"
         aria-label={label}
         onChange={(_, v) => onChange(v as number)}
       />
     </Box>
-  )
-}
-
-// overline section heading with an optional info tip
-export function SectionLabel({ children, info }: { children: string; info?: string }) {
-  return (
-    <Typography variant="overline" color="text.secondary" gutterBottom sx={{ display: 'block' }}>
-      {children}
-      {info && <InfoTip text={info} />}
-    </Typography>
-  )
-}
-
-// label with an optional info tip, used for the toggle-group controls
-export function FieldLabel({ children, info }: { children: string; info?: string }) {
-  return (
-    <Typography variant="body2" color="text.secondary" gutterBottom>
-      {children}
-      {info && <InfoTip text={info} />}
-    </Typography>
   )
 }
