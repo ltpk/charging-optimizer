@@ -56,29 +56,6 @@ export function gridPower(p: Params): number {
   return p.chargerCap > 0 ? Math.min(outlet, p.chargerCap) : outlet
 }
 
-// read-only charging specs derived purely from the vehicle/charger config
-export interface ChargeSpecs {
-  gridPower: number // kW drawn from grid
-  chargingPower: number // kW reaching the battery (grid × efficiency)
-  chargingSpeed: number // % of battery per hour
-  energyToBattery: number // kWh stored
-  energyFromGrid: number // kWh drawn from grid
-}
-
-export function chargeSpecs(p: Params): ChargeSpecs {
-  const grid = gridPower(p)
-  const efficiency = 1 - p.chargingLoss / 100
-  const charging = grid * efficiency
-  const energyToBattery = (Math.max(0, p.socTarget - p.socNow) / 100) * p.batteryCapacity
-  return {
-    gridPower: grid,
-    chargingPower: charging,
-    chargingSpeed: p.batteryCapacity > 0 ? (charging / p.batteryCapacity) * 100 : 0,
-    energyToBattery,
-    energyFromGrid: efficiency > 0 ? energyToBattery / efficiency : 0,
-  }
-}
-
 export function isNightHour(hour: number): boolean {
   return hour >= 22 || hour < 7
 }

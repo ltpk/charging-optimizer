@@ -23,6 +23,8 @@ export interface ApiStatus {
   ok: boolean
   warn: boolean
   text: string
+  // a fetch is in flight (header freshness chip shows a spinner)
+  busy?: boolean
 }
 
 export interface Params {

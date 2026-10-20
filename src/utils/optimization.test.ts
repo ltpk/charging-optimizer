@@ -115,7 +115,7 @@ describe('optimize', () => {
     expect(r.hoursNeeded).toBeCloseTo((0.3 * 77) / 0.89 / 5.5, 6)
   })
 
-  test('consecutive mode picks the cheapest contiguous window', () => {
+  test('picks the cheapest contiguous window', () => {
     const r = optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, baseParams, NOON)!
     expect(selectedHours(r)).toEqual([14, 15])
     expect(r.selectedList).toHaveLength(8)
