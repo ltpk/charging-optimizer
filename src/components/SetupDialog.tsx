@@ -206,11 +206,21 @@ export function SetupDialog({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
             <NumField
               label="Battery capacity (kWh)"
-              info="Usable battery size."
+              info="Usable battery size when new."
               value={params.batteryCapacity}
               step={1}
               min={1}
               onCommit={p('batteryCapacity')}
+            />
+            <SliderField
+              label="Battery health (SOH)"
+              info="State of health — share of the original capacity the battery still holds. Energy needs use capacity × SOH."
+              value={params.batterySoh}
+              unit="%"
+              min={50}
+              max={100}
+              step={1}
+              onChange={p('batterySoh')}
             />
             <NumField
               label="Onboard charger (kW)"
