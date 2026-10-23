@@ -17,6 +17,7 @@ export const DEFAULT_PARAMS: Params = {
   socNow: 50,
   socTarget: 80,
   batteryCapacity: 77,
+  batterySoh: 100,
   chargingLoss: 10,
   phases: 3,
   amperage: 16,
@@ -42,11 +43,14 @@ export const DEFAULT_PARAMS: Params = {
   solarEnabled: false,
 }
 
+// usable capacity after degradation (SOC % is relative to this, not to the nominal capacity)
+export const usableCapacity = (p: Params): number => (p.batteryCapacity * p.batterySoh) / 100
+
 function calcHours(p: Params): number {
   const efficiency = 1 - p.chargingLoss / 100
   // degenerate configs (0 kW grid power, ≥100 % loss) would divide to Infinity — treat as "can't charge"
   if (p.chargingPower <= 0 || efficiency <= 0) return 0
-  const energyToCharge = ((p.socTarget - p.socNow) / 100) * p.batteryCapacity
+  const energyToCharge = ((p.socTarget - p.socNow) / 100) * usableCapacity(p)
   return Math.max(0, energyToCharge / efficiency / p.chargingPower)
 }
 
@@ -69,11 +73,12 @@ export function chargeSpecs(p: Params): ChargeSpecs {
   const grid = gridPower(p)
   const efficiency = 1 - p.chargingLoss / 100
   const charging = grid * efficiency
-  const energyToBattery = (Math.max(0, p.socTarget - p.socNow) / 100) * p.batteryCapacity
+  const capacity = usableCapacity(p)
+  const energyToBattery = (Math.max(0, p.socTarget - p.socNow) / 100) * capacity
   return {
     gridPower: grid,
     chargingPower: charging,
-    chargingSpeed: p.batteryCapacity > 0 ? (charging / p.batteryCapacity) * 100 : 0,
+    chargingSpeed: capacity > 0 ? (charging / capacity) * 100 : 0,
     energyToBattery,
     energyFromGrid: efficiency > 0 ? energyToBattery / efficiency : 0,
   }

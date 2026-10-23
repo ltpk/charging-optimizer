@@ -28,7 +28,8 @@ export interface ApiStatus {
 export interface Params {
   socNow: number
   socTarget: number
-  batteryCapacity: number
+  batteryCapacity: number // nominal usable capacity when new (kWh)
+  batterySoh: number // state of health, percent of batteryCapacity still available
   chargingLoss: number // stored as percent (e.g. 11 means 11%)
   phases: number // 1 or 3
   amperage: number // charge current per phase (A)

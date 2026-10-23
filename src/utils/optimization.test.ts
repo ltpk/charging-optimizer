@@ -115,6 +115,11 @@ describe('optimize', () => {
     expect(r.hoursNeeded).toBeCloseTo((0.3 * 77) / 0.89 / 5.5, 6)
   })
 
+  test('hoursNeeded scales with battery SOH', () => {
+    const r = optimize(prices(12, Array(10).fill(5)), {}, { ...baseParams, batterySoh: 80 }, NOON)!
+    expect(r.hoursNeeded).toBeCloseTo(1.6, 10) // 2 h × 0.8
+  })
+
   test('consecutive mode picks the cheapest contiguous window', () => {
     const r = optimize(prices(12, [10, 10, 2, 2, 10, 10]), {}, baseParams, NOON)!
     expect(selectedHours(r)).toEqual([14, 15])
