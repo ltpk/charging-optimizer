@@ -240,11 +240,11 @@ export const PriceChart = memo(function PriceChart({
   const minY = Math.min(0, ...netCostData, ...spotData) * 1.1
   const maxY2 = Math.max(...solarKw, 1) * 1.5
 
-  const segBorder = (ctx: ScriptableLineSegmentContext, actual: string, predicted: string, past: string) => {
-    const i = ctx.p0DataIndex
-    if (nowIdx >= 0 && i < nowIdx) return past
-    return slotSources[i] ? actual : predicted
-  }
+  // one rule for every price line: solid = actual, dashed = forecast, faded = past
+  const isPast = (ctx: ScriptableLineSegmentContext) => nowIdx >= 0 && ctx.p0DataIndex < nowIdx
+  const segColor = (color: string, a: number) => (ctx: ScriptableLineSegmentContext) =>
+    alpha(color, isPast(ctx) ? a * 0.35 : a)
+  const segDash = (ctx: ScriptableLineSegmentContext) => (slotSources[ctx.p0DataIndex] ? [] : [5, 4])
 
   const data = {
     labels,
@@ -263,29 +263,21 @@ export const PriceChart = memo(function PriceChart({
         yAxisID: 'y',
         fill: true,
         order: 1,
-        segment: {
-          borderColor: (ctx: ScriptableLineSegmentContext) => segBorder(ctx, P, alpha(P, 0.53), alpha(P, 0.27)),
-          backgroundColor: (ctx: ScriptableLineSegmentContext) =>
-            segBorder(ctx, alpha(P, 0.09), alpha(P, 0.05), alpha(P, 0.03)),
-        },
+        segment: { borderColor: segColor(P, 1), backgroundColor: segColor(P, 0.09), borderDash: segDash },
       },
       {
         type: 'line' as const,
         label: 'Spot price',
         hidden: hidden.has('Spot price'),
         data: spotData,
-        borderColor: alpha(P, 0.4),
+        borderColor: alpha(P, 0.6),
         borderWidth: 1,
         pointRadius: 0,
         stepped: 'before' as const,
         yAxisID: 'y',
         fill: false,
         order: 2,
-        segment: {
-          borderColor: (ctx: ScriptableLineSegmentContext) =>
-            segBorder(ctx, alpha(P, 0.73), alpha(P, 0.4), alpha(P, 0.2)),
-          borderDash: (ctx: ScriptableLineSegmentContext) => (slotSources[ctx.p0DataIndex] ? [] : [2, 3]),
-        },
+        segment: { borderColor: segColor(P, 0.6), borderDash: segDash },
       },
       ...(transferEnabled
         ? [
@@ -414,7 +406,7 @@ export const PriceChart = memo(function PriceChart({
         <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
           {[
             { id: 'Net cost', color: P, label: 'Net cost (c/kWh)' },
-            { id: 'Spot price', color: alpha(P, 0.73), label: 'Spot (faded = forecast)' },
+            { id: 'Spot price', color: alpha(P, 0.6), label: 'Spot (c/kWh)' },
             ...(transferEnabled
               ? [{ id: 'Transfer fee', color: theme.palette.text.secondary, label: 'Transfer fee (c/kWh)' }]
               : []),
@@ -453,6 +445,9 @@ export const PriceChart = memo(function PriceChart({
               </Typography>
             </ButtonBase>
           ))}
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+            solid = actual · dashed = forecast · faded = past
+          </Typography>
         </Box>
       </CardContent>
     </Card>
