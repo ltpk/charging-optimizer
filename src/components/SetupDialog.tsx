@@ -9,14 +9,12 @@ import {
   FormControlLabel,
   Button,
   Typography,
-  Dialog,
+  Drawer,
   DialogTitle,
   DialogContent,
   DialogActions,
   IconButton,
-  useMediaQuery,
 } from '@mui/material'
-import { useTheme } from '@mui/material/styles'
 import CloseIcon from '@mui/icons-material/Close'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import { InfoTip, SectionLabel, FieldLabel, SliderField } from './fields'
@@ -185,14 +183,22 @@ export function SetupDialog({
   onFetchSolar,
   solarStatus,
 }: Props) {
-  const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'))
   const p =
     <K extends keyof Params>(key: K) =>
     (v: Params[K]) =>
       onParamChange(key, v)
 
   return (
-    <Dialog open={open} onClose={onClose} fullScreen={fullScreen} fullWidth maxWidth="sm" scroll="paper">
+    // a side drawer, not a modal dialog: the plan stays visible (lightly dimmed) and updates as you edit
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={onClose}
+      slotProps={{
+        backdrop: { sx: { bgcolor: 'rgba(0,0,0,0.2)' } },
+        paper: { sx: { width: { xs: '100%', sm: 440 }, display: 'flex', flexDirection: 'column' } },
+      }}
+    >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1.5 }}>
         Vehicle &amp; pricing setup
         <IconButton size="small" onClick={onClose} aria-label="Close setup">
@@ -504,6 +510,6 @@ export function SetupDialog({
           Done
         </Button>
       </DialogActions>
-    </Dialog>
+    </Drawer>
   )
 }
