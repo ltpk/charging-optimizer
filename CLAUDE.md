@@ -8,6 +8,8 @@ A React + TypeScript + Vite application for optimizing EV charging times based o
 
 README.md's "How it works" section holds three Mermaid diagrams (data pipeline, optimizer pipeline, price-refresh cadence) at topology level — when changing those flows (new data source, cache, optimizer stage, or refresh state), update the matching diagram too.
 
+**Documentation style:** write `README.md` (and any other human-facing docs) in ASD-STE100 Simplified Technical English — short active sentences, one statement per sentence, approved simple verbs (use/show/get/start/keep), imperative numbered steps for procedures, one consistent word per action (e.g. don't mix "fetch" and "get"). Use the `asd-ste100` skill when it is installed, and check with its linter: `python3 -I .agents/skills/asd-ste100/scripts/ste-lint.py README.md` (quoted UI labels like **Fetch solar forecast** are expected false positives). `CLAUDE.md` itself is agent instructions, not STE.
+
 **Stack:** React 19, TypeScript 6 (strict), MUI v9 (light/dark/system theme), Chart.js 4 via react-chartjs-2, Vite 8.
 
 ## Commands
