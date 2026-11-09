@@ -271,12 +271,23 @@ export function SetupDialog({
       <Group title="Battery">
         <NumField
           label="Capacity"
-          info="Usable battery size."
+          info="Usable battery size when new."
           unit="kWh"
           value={params.batteryCapacity}
           step={1}
           min={1}
           onCommit={p('batteryCapacity')}
+        />
+        <SliderField
+          small
+          label="Battery health (SOH)"
+          info="State of health — share of the original capacity the battery still holds. Energy needs use capacity × SOH."
+          value={params.batterySoh}
+          unit="%"
+          min={50}
+          max={100}
+          step={1}
+          onChange={p('batterySoh')}
         />
         <SliderField
           small
