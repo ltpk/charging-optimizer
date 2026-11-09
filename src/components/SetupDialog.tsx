@@ -151,11 +151,11 @@ function ChargeSpecs({ params }: { params: Params }) {
         columnGap: 1.5,
       }}
     >
-      <SpecRow label="Charging speed" value={`${fmtNum(specs.chargingSpeed, 1)} % / hr`} />
-      <SpecRow label="Charging power" value={`${fmtNum(specs.chargingPower, 1)} kW`} />
-      {showGrid && <SpecRow label="Grid power" value={`${fmtNum(specs.gridPower, 1)} kW`} />}
-      <SpecRow label="Energy to battery" value={`${fmtNum(specs.energyToBattery, 1)} kWh`} />
-      {showGrid && <SpecRow label="Energy from grid" value={`${fmtNum(specs.energyFromGrid, 1)} kWh`} />}
+      <SpecRow label="Charging speed" value={`${fmtNum(specs.chargingSpeed, 1)}\u00a0% / hr`} />
+      <SpecRow label="Charging power" value={`${fmtNum(specs.chargingPower, 1)}\u00a0kW`} />
+      {showGrid && <SpecRow label="Grid power" value={`${fmtNum(specs.gridPower, 1)}\u00a0kW`} />}
+      <SpecRow label="Energy to battery" value={`${fmtNum(specs.energyToBattery, 1)}\u00a0kWh`} />
+      {showGrid && <SpecRow label="Energy from grid" value={`${fmtNum(specs.energyFromGrid, 1)}\u00a0kWh`} />}
     </Box>
   )
 }
@@ -261,7 +261,7 @@ export function SetupDialog({
             />
             <NumField
               label="Voltage (V)"
-              info="Grid voltage — usually 230 V in Finland."
+              info="Grid voltage — usually 230&nbsp;V in Finland."
               value={params.voltage}
               step={1}
               min={100}

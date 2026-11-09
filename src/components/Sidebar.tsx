@@ -19,7 +19,7 @@ import TuneIcon from '@mui/icons-material/Tune'
 import { InfoTip, SliderField, SectionLabel, FieldLabel } from './fields'
 import type { Params, ApiStatus } from '../types'
 
-// small live-committing integer field (0–23) for the charge-by deadline hour
+// small live-committing integer field (0–23) for the start/charge-by hours
 function HourField({ value, onCommit }: { value: number; onCommit: (v: number) => void }) {
   const [text, setText] = useState(String(value))
   useEffect(() => {
@@ -42,6 +42,55 @@ function HourField({ value, onCommit }: { value: number; onCommit: (v: number) =
         if (isNaN(v) || v < 0 || v > 23) setText(String(value))
       }}
     />
+  )
+}
+
+// checkbox + day offset + hour — shared by the earliest-start and charge-by limits
+function TimeLimit(props: {
+  label: string
+  info: string
+  enabled: boolean
+  day: number
+  hour: number
+  onEnabled: (v: boolean) => void
+  onDay: (v: number) => void
+  onHour: (v: number) => void
+}) {
+  return (
+    <Box>
+      <FormControlLabel
+        sx={{ mx: 0, gap: 0.5 }}
+        control={<Checkbox size="small" checked={props.enabled} onChange={e => props.onEnabled(e.target.checked)} />}
+        label={
+          <Typography variant="body2" color="text.secondary">
+            {props.label}
+            <InfoTip text={props.info} />
+          </Typography>
+        }
+      />
+      {props.enabled && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
+          <ToggleButtonGroup
+            value={props.day}
+            exclusive
+            size="small"
+            onChange={(_, v: number | null) => {
+              if (v != null) props.onDay(v)
+            }}
+          >
+            <ToggleButton value={0}>Today</ToggleButton>
+            <ToggleButton value={1}>Tmrw</ToggleButton>
+            <ToggleButton value={2}>+2d</ToggleButton>
+          </ToggleButtonGroup>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <HourField value={props.hour} onCommit={props.onHour} />
+            <Typography variant="body2" color="text.secondary">
+              .00
+            </Typography>
+          </Box>
+        </Box>
+      )}
+    </Box>
   )
 }
 
@@ -148,51 +197,31 @@ export function Sidebar({
                 if (v != null) onParamChange('horizonH', v)
               }}
             >
-              <ToggleButton value={24}>24 h</ToggleButton>
-              <ToggleButton value={48}>48 h</ToggleButton>
-              <ToggleButton value={72}>72 h</ToggleButton>
+              <ToggleButton value={24}>24&nbsp;h</ToggleButton>
+              <ToggleButton value={48}>48&nbsp;h</ToggleButton>
+              <ToggleButton value={72}>72&nbsp;h</ToggleButton>
             </ToggleButtonGroup>
           </Box>
-          <Box>
-            <FormControlLabel
-              sx={{ mx: 0, gap: 0.5 }}
-              control={
-                <Checkbox
-                  size="small"
-                  checked={params.chargeByEnabled}
-                  onChange={e => onParamChange('chargeByEnabled', e.target.checked)}
-                />
-              }
-              label={
-                <Typography variant="body2" color="text.secondary">
-                  Charge by
-                  <InfoTip text="Constrain charging to finish before a chosen time of day." />
-                </Typography>
-              }
-            />
-            {params.chargeByEnabled && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
-                <ToggleButtonGroup
-                  value={params.chargeByDay}
-                  exclusive
-                  size="small"
-                  onChange={(_, v: number | null) => {
-                    if (v != null) onParamChange('chargeByDay', v)
-                  }}
-                >
-                  <ToggleButton value={0}>Today</ToggleButton>
-                  <ToggleButton value={1}>Tmrw</ToggleButton>
-                  <ToggleButton value={2}>+2d</ToggleButton>
-                </ToggleButtonGroup>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <HourField value={params.chargeByHour} onCommit={v => onParamChange('chargeByHour', v)} />
-                  <Typography variant="body2" color="text.secondary">
-                    .00
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-          </Box>
+          <TimeLimit
+            label="Start at earliest"
+            info="Don't start charging before a chosen time — e.g. when you're not home yet or the sauna is on."
+            enabled={params.startAfterEnabled}
+            day={params.startAfterDay}
+            hour={params.startAfterHour}
+            onEnabled={v => onParamChange('startAfterEnabled', v)}
+            onDay={v => onParamChange('startAfterDay', v)}
+            onHour={v => onParamChange('startAfterHour', v)}
+          />
+          <TimeLimit
+            label="Charge by"
+            info="Constrain charging to finish before a chosen time of day."
+            enabled={params.chargeByEnabled}
+            day={params.chargeByDay}
+            hour={params.chargeByHour}
+            onEnabled={v => onParamChange('chargeByEnabled', v)}
+            onDay={v => onParamChange('chargeByDay', v)}
+            onHour={v => onParamChange('chargeByHour', v)}
+          />
         </Box>
       </Box>
 

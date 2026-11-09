@@ -45,7 +45,9 @@ export function SliderField({ label, value, unit, min, max, step, onChange, info
           {info && <InfoTip text={info} />}
         </Typography>
         <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-          {value} {unit}
+          {value}
+          {unit === '°' ? '' : '\u00a0'}
+          {unit}
         </Typography>
       </Box>
       <Slider

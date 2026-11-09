@@ -40,6 +40,9 @@ export interface Params {
   chargeByEnabled: boolean
   chargeByHour: number
   chargeByDay: number
+  startAfterEnabled: boolean // earliest allowed start (e.g. not home yet, sauna on)
+  startAfterHour: number
+  startAfterDay: number
   transferEnabled: boolean
   transferFixed: boolean // true: single fixed fee; false: separate day/night fees
   transferFee: number // fixed fee, used when transferFixed
@@ -68,6 +71,7 @@ export interface OptimizeResult {
   nHours: number
   totalCost: number
   savingsVsNow: number
+  earliestStart: Date | null // earliest-start limit, only while it's still ahead of now
   nowIdx: number
   slotSources: boolean[]
   solarNow: number

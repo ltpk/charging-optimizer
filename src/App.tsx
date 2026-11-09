@@ -82,7 +82,7 @@ export default function App() {
   const [spotStatus, setSpotStatus] = useState<ApiStatus>({ ok: false, warn: false, text: 'Fetching...' })
   const [solarStatus, setSolarStatus] = useState<ApiStatus>(() =>
     cachedSolar
-      ? { ok: true, warn: false, text: `From cache — ${Object.keys(cachedSolar).length} h` }
+      ? { ok: true, warn: false, text: `From cache — ${Object.keys(cachedSolar).length}\u00a0h` }
       : { ok: false, warn: false, text: 'No solar forecast — fetch above' },
   )
   // the location/panel setup the current solarData was fetched for — used to warn when params drift
@@ -243,7 +243,7 @@ export default function App() {
       fetchedSolarKeyRef.current = solarCacheKey(geoCoords, params)
       fetchedSolarDayRef.current = localDateStr()
       driftWarnRef.current = false
-      setSolarStatus({ ok: true, warn: false, text: `${Object.keys(data).length} h fetched` })
+      setSolarStatus({ ok: true, warn: false, text: `${Object.keys(data).length}\u00a0h fetched` })
     } catch (e) {
       setSolarStatus({ ok: false, warn: true, text: `Error: ${(e as Error).message}` })
     }
@@ -259,7 +259,7 @@ export default function App() {
       setSolarStatus({ ok: false, warn: true, text: 'Panel settings changed — refetch forecast' })
     } else if (driftWarnRef.current) {
       driftWarnRef.current = false
-      setSolarStatus({ ok: true, warn: false, text: `${Object.keys(solarData).length} h loaded` })
+      setSolarStatus({ ok: true, warn: false, text: `${Object.keys(solarData).length}\u00a0h loaded` })
     }
   }, [geoCoords, params.solarDec, params.solarAz, params.solarKwp]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -387,7 +387,7 @@ export default function App() {
                 // plan card scrolled away — keep the answer in view
                 <Chip
                   color={status.color}
-                  label={`${status.short}${result.nHours > 0 ? ` · ${fmtNum(result.totalCost)} €` : ''}`}
+                  label={`${status.short}${result.nHours > 0 ? ` · ${fmtNum(result.totalCost)}\u00a0€` : ''}`}
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                   sx={{ fontWeight: 600, minWidth: 0 }}
                 />
@@ -544,6 +544,7 @@ export default function App() {
                     avgTransfer={result.avgTransfer}
                     avgNetCost={result.avgNetCost}
                     savingsVsNow={result.savingsVsNow}
+                    earliestStart={result.earliestStart}
                     spotNow={result.currentSlot.spotCent}
                     netCostNow={result.currentSlot.netCost}
                     transferNow={getTransfer(params, result.currentSlot.hour)}
@@ -564,8 +565,12 @@ export default function App() {
                     <Alert severity="warning">
                       Only {fmtNum(result.achievableHours, 1)} of {fmtNum(result.hoursNeeded, 1)} needed charging hours
                       fit
-                      {params.chargeByEnabled ? ' before the deadline' : ' in the search window'} — target SOC won't be
-                      reached.
+                      {params.chargeByEnabled
+                        ? params.startAfterEnabled
+                          ? ' between the earliest start and the deadline'
+                          : ' before the deadline'
+                        : ' in the search window'}{' '}
+                      — target SOC won't be reached.
                     </Alert>
                   )
                 )}

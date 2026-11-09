@@ -347,10 +347,10 @@ export const PriceChart = memo(function PriceChart({
             const l = ctx.dataset.label ?? ''
             const v = ctx.parsed.y ?? 0
             const src = slotSources[ctx.dataIndex] ? 'actual' : 'forecast'
-            if (l === 'Net cost') return ` Net cost: ${fmtNum(v)} c/kWh`
-            if (l === 'Spot price') return ` Spot (${src}): ${fmtNum(v)} c/kWh`
-            if (l === 'Transfer fee') return ` Transfer: ${fmtNum(v)} c/kWh`
-            if (l === 'Solar output') return ` Solar: ${fmtNum(v)} kW`
+            if (l === 'Net cost') return ` Net cost: ${fmtNum(v)}\u00a0c/kWh`
+            if (l === 'Spot price') return ` Spot (${src}): ${fmtNum(v)}\u00a0c/kWh`
+            if (l === 'Transfer fee') return ` Transfer: ${fmtNum(v)}\u00a0c/kWh`
+            if (l === 'Solar output') return ` Solar: ${fmtNum(v)}\u00a0kW`
             return ''
           },
         },
