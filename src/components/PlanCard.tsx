@@ -20,7 +20,7 @@ function fmtWhen(dt: Date): string {
 function fmtDuration(ms: number): string {
   const h = Math.floor(ms / 3_600_000)
   const m = Math.floor((ms % 3_600_000) / 60_000)
-  return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`
+  return h > 0 ? `${h}\u00a0h ${String(m).padStart(2, '0')}\u00a0min` : `${m}\u00a0min`
 }
 
 export interface PlanStatus {
@@ -67,7 +67,7 @@ function Figure({ label, value, sub }: { label: string; value: string; sub?: str
 
 // a percent of a baseline that negative spot can drive to ~0, where the percent explodes — € only then
 const pctOf = (part: number, baseline: number) =>
-  baseline >= 0.01 ? ` (${((part / baseline) * 100).toFixed(0)} %)` : ''
+  baseline >= 0.01 ? ` (${((part / baseline) * 100).toFixed(0)}\u00a0%)` : ''
 
 interface Props {
   isGo: boolean
@@ -81,6 +81,7 @@ interface Props {
   avgTransfer: number
   avgNetCost: number
   savingsVsNow: number
+  earliestStart: Date | null
   spotNow: number
   netCostNow: number
   transferNow: number
@@ -94,6 +95,7 @@ interface Props {
 // the answer first: when to charge, when it's done, what it costs — then the supporting figures
 export function PlanCard(props: Props) {
   const { isGo, isFull, firstSel, lastSel, completionTime, totalCost, savingsVsNow } = props
+  const start = props.earliestStart // the savings baseline starts here instead of now
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
@@ -114,18 +116,18 @@ export function PlanCard(props: Props) {
 
   let solarSub: string | undefined
   if (props.solarSavings >= 0.005) {
-    solarSub = `saves ${fmtNum(props.solarSavings)} €${pctOf(props.solarSavings, totalCost + props.solarSavings)}`
+    solarSub = `saves ${fmtNum(props.solarSavings)}\u00a0€${pctOf(props.solarSavings, totalCost + props.solarSavings)}`
   } else if (props.solarSavings <= -0.005) {
     // negative spot: grid power beats free solar, so self-consuming solar costs money
-    solarSub = `adds ${fmtNum(-props.solarSavings)} € (negative spot)`
+    solarSub = `adds ${fmtNum(-props.solarSavings)}\u00a0€ (negative spot)`
   }
 
   // net cost is what the optimizer actually ranks by — surface the current slot's value
-  const nowParts = [`spot ${fmtNum(props.spotNow)} c/kWh`]
-  if (props.transferEnabled) nowParts.push(`transfer ${fmtNum(props.transferNow)} c/kWh`)
-  nowParts.push(`net ${fmtNum(props.netCostNow)} c/kWh`)
+  const nowParts = [`spot ${fmtNum(props.spotNow)}\u00a0c/kWh`]
+  if (props.transferEnabled) nowParts.push(`transfer ${fmtNum(props.transferNow)}\u00a0c/kWh`)
+  nowParts.push(`net ${fmtNum(props.netCostNow)}\u00a0c/kWh`)
   let nowLine = `Now: ${nowParts.join(' · ')}`
-  if (props.solarEnabled) nowLine += ` · solar ${Math.round(props.solarNow)} W`
+  if (props.solarEnabled) nowLine += ` · solar ${Math.round(props.solarNow)}\u00a0W`
 
   return (
     <Card variant="outlined">
@@ -139,7 +141,7 @@ export function PlanCard(props: Props) {
           </Box>
           {!isFull && props.hoursNeeded > 0 && (
             <Typography variant="body2" color="text.secondary">
-              Charge for {fmtDuration(props.hoursNeeded * 3_600_000)} · {fmtNum(props.kWhNeeded, 1)} kWh
+              Charge for {fmtDuration(props.hoursNeeded * 3_600_000)} · {fmtNum(props.kWhNeeded, 1)}&nbsp;kWh
             </Typography>
           )}
           <Typography variant="h5" component="p">
@@ -170,28 +172,30 @@ export function PlanCard(props: Props) {
           >
             <Figure
               label="Est. cost"
-              value={`${fmtNum(totalCost)} €`}
+              value={`${fmtNum(totalCost)}\u00a0€`}
               sub={
-                `avg ${fmtNum(props.avgNetCost)} c/kWh` +
+                `avg ${fmtNum(props.avgNetCost)}\u00a0c/kWh` +
                 (props.transferEnabled
                   ? // "spot" = everything but transfer (spot + retailer margin, incl. solar opportunity cost)
-                    ` (spot ${fmtNum(props.avgNetCost - props.avgTransfer)} c/kWh, transfer ${fmtNum(props.avgTransfer)} c/kWh)`
+                    ` (spot ${fmtNum(props.avgNetCost - props.avgTransfer)}\u00a0c/kWh, transfer ${fmtNum(props.avgTransfer)}\u00a0c/kWh)`
                   : '')
               }
             />
             <Figure
-              label="vs charging now"
-              value={savingsVsNow >= 0.005 ? `−${fmtNum(savingsVsNow)} €` : '–'}
+              label={start ? `vs starting at ${fmtTime(start)}` : 'vs charging now'}
+              value={savingsVsNow >= 0.005 ? `−${fmtNum(savingsVsNow)}\u00a0€` : '–'}
               sub={
                 savingsVsNow < 0.005
-                  ? 'no cheaper time ahead'
-                  : totalCost + savingsVsNow >= 0.01
-                    ? `${((savingsVsNow / (totalCost + savingsVsNow)) * 100).toFixed(0)} % cheaper by waiting`
-                    : 'cheaper by waiting'
+                  ? start
+                    ? `no cheaper time after ${fmtTime(start)}`
+                    : 'no cheaper time ahead'
+                  : (totalCost + savingsVsNow >= 0.01
+                      ? `${((savingsVsNow / (totalCost + savingsVsNow)) * 100).toFixed(0)}\u00a0% cheaper`
+                      : 'cheaper') + (start ? ` than charging straight from ${fmtTime(start)}` : ' by waiting')
               }
             />
             {props.solarEnabled && (
-              <Figure label="Solar covers" value={`${props.solarPct.toFixed(0)} %`} sub={solarSub} />
+              <Figure label="Solar covers" value={`${props.solarPct.toFixed(0)}\u00a0%`} sub={solarSub} />
             )}
           </Box>
         )}
