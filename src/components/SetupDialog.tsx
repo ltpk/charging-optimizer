@@ -309,7 +309,7 @@ export function SetupDialog({
             component="span"
             sx={{ fontFamily: MONO, fontSize: 12, color: 'text.primary', textTransform: 'none', letterSpacing: 0 }}
           >
-            = {fmtNum(gridPower(params))} kW
+            = {fmtNum(gridPower(params))}&nbsp;kW
           </Box>
         }
       >
@@ -340,7 +340,7 @@ export function SetupDialog({
         />
         <NumField
           label="Voltage"
-          info="Grid voltage — usually 230 V in Finland."
+          info="Grid voltage — usually 230&nbsp;V in Finland."
           unit="V"
           value={params.voltage}
           step={1}

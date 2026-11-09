@@ -28,6 +28,9 @@ export const DEFAULT_PARAMS: Params = {
   chargeByEnabled: false,
   chargeByHour: 7,
   chargeByDay: 1,
+  startAfterEnabled: false,
+  startAfterHour: 17,
+  startAfterDay: 0,
   transferEnabled: false,
   transferFixed: false,
   transferFee: 5.26,
@@ -131,11 +134,18 @@ export function optimize(
     deadlinePassed = candidate.getTime() <= now.getTime()
     deadlineDt = new Date(Math.min(candidate.getTime(), horizonCutoff.getTime()))
   }
+  // earliest start: a time already past simply doesn't constrain anything
+  const earliestDt = params.startAfterEnabled
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + params.startAfterDay, params.startAfterHour)
+    : null
 
   // candidates: slots with usable charging capacity left (the in-progress slot counts
   // only for its remaining fraction, and is dropped once it's nearly over)
   const candidates = slots.filter(
-    h => slotCapacity(h.dt, now) >= MIN_SLOT_CAPACITY && (!deadlineDt || h.dt < deadlineDt),
+    h =>
+      slotCapacity(h.dt, now) >= MIN_SLOT_CAPACITY &&
+      (!deadlineDt || h.dt < deadlineDt) &&
+      (!earliestDt || h.dt >= earliestDt),
   )
 
   let selectedList: SlotEntry[] = []
@@ -229,6 +239,7 @@ export function optimize(
     nHours,
     totalCost,
     savingsVsNow,
+    earliestStart: earliestDt && earliestDt > now ? earliestDt : null,
     nowIdx: slots.findIndex(h => h.ts === nowTs),
     slotSources: slots.map(h => h.source === 'actual'),
     solarNow: params.solarEnabled ? getSolarForDt(solarData, now) : 0,

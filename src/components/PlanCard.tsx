@@ -21,7 +21,7 @@ function fmtWhen(dt: Date): string {
 function fmtDuration(ms: number): string {
   const h = Math.floor(ms / 3_600_000)
   const m = Math.floor((ms % 3_600_000) / 60_000)
-  return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`
+  return h > 0 ? `${h}\u00a0h ${String(m).padStart(2, '0')}\u00a0min` : `${m}\u00a0min`
 }
 
 // live h:mm:ss countdown
@@ -109,6 +109,7 @@ interface Props {
   totalCost: number
   avgNetCost: number
   savingsVsNow: number
+  earliestStart: Date | null
   solarEnabled: boolean
   solarPct: number
   solarSavings: number
@@ -117,6 +118,7 @@ interface Props {
 // the answer first: a huge verdict, when it starts / ends, then the supporting figures
 export function PlanCard(props: Props) {
   const { isGo, isFull, firstSel, lastSel, completionTime, totalCost, savingsVsNow } = props
+  const start = props.earliestStart // the savings baseline starts here instead of now
   // 1 s tick for the countdown — local to the hero so the rest of the app doesn't re-render
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -137,13 +139,13 @@ export function PlanCard(props: Props) {
     sub = isGo
       ? `Done by ${fmtWhen(done)} · ${fmtDuration(Math.max(leftMs, 0))} left`
       : `in ${fmtDuration(Math.max(startsInMs, 0))} · done by ${fmtWhen(done)}`
-    sub += ` · ${fmtDuration(props.hoursNeeded * 3_600_000)} of charging at ${fmtNum(props.chargingPower, 1)} kW`
+    sub += ` · ${fmtDuration(props.hoursNeeded * 3_600_000)} of charging at ${fmtNum(props.chargingPower, 1)}\u00a0kW`
   }
 
   let solarSub = 'no solar in window'
-  if (props.solarSavings >= 0.005) solarSub = `saves ${fmtNum(props.solarSavings)} €`
+  if (props.solarSavings >= 0.005) solarSub = `saves ${fmtNum(props.solarSavings)}\u00a0€`
   // negative spot: grid power beats free solar, so self-consuming solar costs money
-  else if (props.solarSavings <= -0.005) solarSub = `adds ${fmtNum(-props.solarSavings)} € (negative spot)`
+  else if (props.solarSavings <= -0.005) solarSub = `adds ${fmtNum(-props.solarSavings)}\u00a0€ (negative spot)`
 
   const baseline = totalCost + savingsVsNow
   const saves = savingsVsNow >= 0.005
@@ -161,7 +163,7 @@ export function PlanCard(props: Props) {
     >
       <Box sx={{ minWidth: 0 }}>
         <Box sx={overline}>
-          Charging plan{planned && props.hoursNeeded > 0 ? ` · ${fmtNum(props.kWhNeeded, 1)} kWh` : ''}
+          Charging plan{planned && props.hoursNeeded > 0 ? ` · ${fmtNum(props.kWhNeeded, 1)}\u00a0kWh` : ''}
         </Box>
         <Typography
           component="h2"
@@ -199,22 +201,28 @@ export function PlanCard(props: Props) {
           ) : (
             <Stat label="Starts in" value={fmtClock(startsInMs)} color={tone} big />
           )}
-          <Stat label="Est. cost" value={`${fmtNum(totalCost)} €`} sub={`avg ${fmtNum(props.avgNetCost)} c/kWh`} big />
           <Stat
-            label="vs charging now"
-            value={saves ? `−${fmtNum(savingsVsNow)} €` : '–'}
+            label="Est. cost"
+            value={`${fmtNum(totalCost)}\u00a0€`}
+            sub={`avg ${fmtNum(props.avgNetCost)}\u00a0c/kWh`}
+            big
+          />
+          <Stat
+            label={start ? `vs starting at ${fmtTime(start)}` : 'vs charging now'}
+            value={saves ? `−${fmtNum(savingsVsNow)}\u00a0€` : '–'}
             color={saves ? 'ev.go' : 'text.secondary'}
             sub={
               !saves
-                ? 'no cheaper time ahead'
+                ? start
+                  ? `no cheaper time after ${fmtTime(start)}`
+                  : 'no cheaper time ahead'
                 : // negative spot can drive the baseline through zero, where the percent explodes
-                  baseline >= 0.01
-                  ? `${((savingsVsNow / baseline) * 100).toFixed(0)} % cheaper by waiting`
-                  : 'cheaper by waiting'
+                  (baseline >= 0.01 ? `${((savingsVsNow / baseline) * 100).toFixed(0)}\u00a0% cheaper` : 'cheaper') +
+                  (start ? ` than charging straight from ${fmtTime(start)}` : ' by waiting')
             }
           />
           {props.solarEnabled && (
-            <Stat label="Solar covers" value={`${props.solarPct.toFixed(0)} %`} color="ev.solar" sub={solarSub} />
+            <Stat label="Solar covers" value={`${props.solarPct.toFixed(0)}\u00a0%`} color="ev.solar" sub={solarSub} />
           )}
         </Box>
       )}

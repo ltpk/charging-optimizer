@@ -145,6 +145,6 @@ async function runFetchPrices(): Promise<FetchPricesResult> {
 
   return {
     priceData,
-    statusText: `${hActual} h spot · ${hPredict} h forecast (until ${last.toLocaleDateString('fi-FI')})`,
+    statusText: `${hActual}\u00a0h spot · ${hPredict}\u00a0h forecast (until ${last.toLocaleDateString('fi-FI')})`,
   }
 }

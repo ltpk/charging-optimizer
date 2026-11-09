@@ -384,10 +384,10 @@ export const PriceChart = memo(function PriceChart({
           label: item => {
             const i = item.dataIndex
             const s = slots[i]
-            const rows = [`${pad('net')}${fmtNum(s.netCost)} c`, `${pad('spot')}${fmtNum(s.spotCent)} c`]
-            if (params.transferEnabled) rows.push(`${pad('transfer+tax')}${fmtNum(transferData[i])} c`)
-            if (on('solar')) rows.push(`${pad('solar')}${fmtNum(solarKw[i])} kW`)
-            if (selMin[i] > 0) rows.push(`${pad('charging')}${Math.round(selMin[i])} min`)
+            const rows = [`${pad('net')}${fmtNum(s.netCost)}\u00a0c`, `${pad('spot')}${fmtNum(s.spotCent)}\u00a0c`]
+            if (params.transferEnabled) rows.push(`${pad('transfer+tax')}${fmtNum(transferData[i])}\u00a0c`)
+            if (on('solar')) rows.push(`${pad('solar')}${fmtNum(solarKw[i])}\u00a0kW`)
+            if (selMin[i] > 0) rows.push(`${pad('charging')}${Math.round(selMin[i])}\u00a0min`)
             return rows
           },
         },
@@ -462,7 +462,7 @@ export const PriceChart = memo(function PriceChart({
         }}
       >
         <Box component="span" sx={overline}>
-          Price &amp; charging window · next {horizonH} h
+          Price &amp; charging window · next {horizonH}&nbsp;h
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, flexWrap: 'wrap' }}>
           {legend('actual', line(t.text))}

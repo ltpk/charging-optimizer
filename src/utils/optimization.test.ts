@@ -190,6 +190,13 @@ describe('optimize', () => {
     expect(r.achievableHours).toBe(0)
   })
 
+  test('earliest start excludes cheaper earlier slots; a past start has no effect', () => {
+    const data = prices(12, [1, 1, 5, 5, 3, 3]) // need 2 h; cheapest 12–14, next 16–18
+    const p = { ...baseParams, startAfterEnabled: true, startAfterDay: 0, startAfterHour: 14 }
+    expect(selectedHours(optimize(data, {}, p, NOON)!)).toEqual([16, 17])
+    expect(selectedHours(optimize(data, {}, { ...p, startAfterHour: 10 }, NOON)!)).toEqual([12, 13])
+  })
+
   test('solar-covered hour wins and is reported in coverage/savings', () => {
     const p = { ...baseParams, batteryCapacity: 5, solarEnabled: true } // need 1 h
     const data = prices(12, [5, 5, 5])

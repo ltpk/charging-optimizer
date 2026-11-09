@@ -61,8 +61,8 @@ export function SliderField({
         </Box>
         <Box component="span" sx={{ fontFamily: MONO, fontSize: small ? 13 : 15, fontWeight: 600 }}>
           {value}
-          <Box component="small" sx={{ fontSize: 11, color: 'ev.micro', ml: '1px' }}>
-            {unit}
+          <Box component="small" sx={{ fontSize: 11, color: 'ev.micro' }}>
+            {unit === '°' ? unit : `\u00a0${unit}`}
           </Box>
         </Box>
       </Box>
