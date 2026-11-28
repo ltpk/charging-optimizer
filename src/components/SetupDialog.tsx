@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useId } from 'react'
 import {
   Box,
   Divider,
@@ -17,7 +17,7 @@ import {
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
-import { InfoTip, SectionLabel, FieldLabel, SliderField } from './fields'
+import { InfoTip, SectionLabel, FieldLabel, SliderField, useRangeText } from './fields'
 import { chargeSpecs } from '../utils/optimization'
 import type { Params, GeoCoords, ApiStatus } from '../types'
 import { fmtNum } from './PlanCard'
@@ -37,13 +37,7 @@ interface NumFieldProps {
 
 function NumField({ label, value, step, min, max, onCommit, info }: NumFieldProps) {
   const id = useId()
-  // controlled by local text so each keystroke commits live (updating every derived value)
-  // without remounting and dropping focus; the raw string keeps partial input ("", "1.", "-") usable
-  const [text, setText] = useState(String(value))
-  // re-sync only when the value changes from outside (e.g. localStorage restore), never mid-typing
-  useEffect(() => {
-    if (parseFloat(text) !== value) setText(String(value))
-  }, [value]) // depend only on `value` — re-syncing on `text` would clobber mid-typing
+  const field = useRangeText(value, min, max, raw => onCommit(parseFloat(raw)))
   return (
     <Box>
       <Typography
@@ -60,21 +54,10 @@ function NumField({ label, value, step, min, max, onCommit, info }: NumFieldProp
       <TextField
         id={id}
         type="number"
-        value={text}
+        {...field}
         slotProps={{ htmlInput: { step, min, max } }}
         size="small"
         fullWidth
-        onChange={e => {
-          setText(e.target.value)
-          const v = parseFloat(e.target.value)
-          // commit only in-range values — the htmlInput min/max attrs alone don't stop typed input
-          if (!isNaN(v) && (min == null || v >= min) && (max == null || v <= max)) onCommit(v)
-        }}
-        onBlur={() => {
-          const v = parseFloat(text)
-          // revert an empty/invalid/out-of-range field to the committed value
-          if (isNaN(v) || (min != null && v < min) || (max != null && v > max)) setText(String(value))
-        }}
       />
     </Box>
   )
@@ -94,26 +77,14 @@ function GeoField({
   max: number
   onCommit: (v: string) => void
 }) {
-  const [text, setText] = useState(value)
-  useEffect(() => {
-    if (text !== value) setText(value)
-  }, [value]) // depend only on `value` — re-syncing on `text` would clobber mid-typing
+  const field = useRangeText(value, min, max, onCommit)
   return (
     <TextField
       label={label}
       type="number"
-      value={text}
+      {...field}
       slotProps={{ htmlInput: { min, max, step: 'any' } }}
       size="small"
-      onChange={e => {
-        setText(e.target.value)
-        const v = parseFloat(e.target.value)
-        if (!isNaN(v) && v >= min && v <= max) onCommit(e.target.value)
-      }}
-      onBlur={() => {
-        const v = parseFloat(text)
-        if (isNaN(v) || v < min || v > max) setText(value)
-      }}
     />
   )
 }

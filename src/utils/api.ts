@@ -17,19 +17,17 @@ interface SpotHintaRow {
 
 // the prediction is hourly — expand each point into four flat 15-min slots
 function parsePredict(raw: [number, number][]): PriceEntry[] {
-  return raw
-    .flatMap(([ms, spotCent]) => {
-      const hourMs = Math.floor(ms / 3_600_000) * 3_600_000
-      return [0, 1, 2, 3].map(q => {
-        const dt = new Date(hourMs + q * SLOT_MS)
-        return { dt, spotCent, hour: dt.getHours(), ts: slotTs(dt), source: 'predicted' as const }
-      })
+  return raw.flatMap(([ms, spotCent]) => {
+    const hourMs = Math.floor(ms / 3_600_000) * 3_600_000
+    return [0, 1, 2, 3].map(q => {
+      const dt = new Date(hourMs + q * SLOT_MS)
+      return { dt, spotCent, hour: dt.getHours(), ts: slotTs(dt), source: 'predicted' as const }
     })
-    .sort((a, b) => a.dt.getTime() - b.dt.getTime())
+  })
 }
 
 async function fetchActualSpot(): Promise<PriceEntry[]> {
-  const cached = lsGet<{ data: StoredEntry[]; fetchedAt: number }>(LS_SPOT_ACTUAL)
+  const cached = lsGet<{ data: StoredEntry[] }>(LS_SPOT_ACTUAL)
   const cachedData = cached?.data?.length ? cached.data.map(d => ({ ...d, dt: new Date(d.dtIso) })) : null
   if (cachedData) {
     const lastDt = cachedData[cachedData.length - 1].dt
@@ -45,7 +43,8 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
     if (hasTomorrow && lastSlotActive) return cachedData
   }
 
-  const [todayRes, forwardRes] = await Promise.allSettled([
+  // each fetch swallows its own errors → [] so one failing endpoint doesn't drop the other
+  const [today, forward] = await Promise.all([
     fetch(SPOT_TODAY_URL)
       .then(r => (r.ok ? (r.json() as Promise<SpotHintaRow[]>) : []))
       .catch(() => [] as SpotHintaRow[]),
@@ -54,10 +53,7 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
       .catch(() => [] as SpotHintaRow[]),
   ])
 
-  const raw: SpotHintaRow[] = [
-    ...(todayRes.status === 'fulfilled' ? todayRes.value : []),
-    ...(forwardRes.status === 'fulfilled' ? forwardRes.value : []),
-  ]
+  const raw = [...today, ...forward]
 
   // spot-hinta.fi returns 15-min slots — keep them as-is, dedupe by slot key
   const slotMap = new Map<string, PriceEntry>()
@@ -76,7 +72,7 @@ async function fetchActualSpot(): Promise<PriceEntry[]> {
   // a failed/empty fetch must not overwrite a good cache — fall back to it (keeps last prices on screen)
   if (!data.length) return cachedData ?? []
 
-  lsSet(LS_SPOT_ACTUAL, { fetchedAt: Date.now(), data: data.map(d => ({ ...d, dtIso: d.dt.toISOString() })) })
+  lsSet(LS_SPOT_ACTUAL, { data: data.map(d => ({ ...d, dtIso: d.dt.toISOString() })) })
   return data
 }
 

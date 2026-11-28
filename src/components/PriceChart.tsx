@@ -24,19 +24,11 @@ interface Props {
   slots: SlotEntry[]
   selectedTs: Set<string>
   nowIdx: number
-  slotSources: boolean[]
   horizonH: number
   params: Params
 }
 
-export const PriceChart = memo(function PriceChart({
-  slots,
-  selectedTs,
-  nowIdx,
-  slotSources,
-  horizonH,
-  params,
-}: Props) {
+export const PriceChart = memo(function PriceChart({ slots, selectedTs, nowIdx, horizonH, params }: Props) {
   const theme = useTheme()
   const isNarrow = useMediaQuery(theme.breakpoints.down('sm'))
   const isDark = theme.palette.mode === 'dark'
@@ -244,7 +236,7 @@ export const PriceChart = memo(function PriceChart({
   const isPast = (ctx: ScriptableLineSegmentContext) => nowIdx >= 0 && ctx.p0DataIndex < nowIdx
   const segColor = (color: string, a: number) => (ctx: ScriptableLineSegmentContext) =>
     alpha(color, isPast(ctx) ? a * 0.35 : a)
-  const segDash = (ctx: ScriptableLineSegmentContext) => (slotSources[ctx.p0DataIndex] ? [] : [5, 4])
+  const segDash = (ctx: ScriptableLineSegmentContext) => (slots[ctx.p0DataIndex]?.source === 'actual' ? [] : [5, 4])
 
   const data = {
     labels,
@@ -338,7 +330,7 @@ export const PriceChart = memo(function PriceChart({
           label: ctx => {
             const l = ctx.dataset.label ?? ''
             const v = ctx.parsed.y ?? 0
-            const src = slotSources[ctx.dataIndex] ? 'actual' : 'forecast'
+            const src = slots[ctx.dataIndex]?.source === 'actual' ? 'actual' : 'forecast'
             if (l === 'Net cost') return ` Net cost: ${fmtNum(v)}\u00a0c/kWh`
             if (l === 'Spot price') return ` Spot (${src}): ${fmtNum(v)}\u00a0c/kWh`
             if (l === 'Transfer fee') return ` Transfer: ${fmtNum(v)}\u00a0c/kWh`

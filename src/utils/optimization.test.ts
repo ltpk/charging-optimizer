@@ -93,7 +93,7 @@ describe('calcNetCost', () => {
 describe('optimize', () => {
   test('battery already full → empty plan', () => {
     const r = optimize(prices(12, [5, 5, 5]), {}, { ...baseParams, socNow: 80, socTarget: 80 }, NOON)!
-    expect(r.nHours).toBe(0)
+    expect(r.hoursNeeded).toBe(0)
     expect(r.selectedList).toHaveLength(0)
     expect(r.completionTime).toBeNull()
     expect(r.achievableHours).toBe(0)
