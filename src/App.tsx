@@ -40,8 +40,12 @@ import type { Params, PriceEntry, SolarData, GeoCoords, ApiStatus, OptimizeResul
 type ColorMode = 'light' | 'dark' | 'system'
 
 const mergedParams: Params = { ...DEFAULT_PARAMS, ...(lsGet<Partial<Params>>(LS_PARAMS) ?? {}) }
-// chargingPower is derived from the electrical inputs — heal any stale stored value on load
-const storedParams: Params = { ...mergedParams, chargingPower: gridPower(mergedParams) }
+// heal stale stored values on load: chargingPower is derived from the electrical inputs; socTarget slider min is 50
+const storedParams: Params = {
+  ...mergedParams,
+  chargingPower: gridPower(mergedParams),
+  socTarget: Math.max(50, mergedParams.socTarget),
+}
 const storedGeo = lsGet<GeoCoords>(LS_GEO)
 const cachedSolar = loadCachedSolar(storedGeo, storedParams)
 
