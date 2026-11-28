@@ -25,6 +25,13 @@ No environment variables needed. Tests cover the pure optimization core (`src/ut
 
 **Code style:** the whole repo is Prettier-formatted; `.prettierrc` matches the codebase idiom (no semicolons, single quotes, trailing commas, no arrow parens, print width 120), so `bunx prettier --check .` passes and lint-staged produces no churn. Write new code in that style.
 
+**Before committing (keep related changes in one PR):** walk this list and fold anything it turns up into the same PR; mention any follow-up you deliberately leave out instead of shipping it silently.
+
+- **Persisted state:** if a `Params` range, default or field changes, do values already in localStorage need healing on load (`healParams()` in `optimization.ts`)?
+- **Docs:** does README.md (features, settings table, Mermaid diagrams) or CLAUDE.md describe what changed?
+- **Tests:** is changed logic covered? If it isn't importable (e.g. module scope in `App.tsx`), move it into `src/utils` and test it there.
+- **Duplicated values:** grep for the literal/constant — other components, defaults and clamps that must change together should share one constant.
+
 **rtk (token-saving proxy):** a global `PreToolUse` hook auto-rewrites most Bash commands (`git`, `gh`, `grep`, `find`, `ls`, `read`, `curl`, …) to their `rtk` equivalents transparently. It rewrites **each segment** of compound commands joined by `&&`, `;`, or `||` (the producer side of a `|` pipe is rewritten; the consumer side is intentionally left native). The hook does **not** touch `bun`/`bunx` — that's the one gap requiring manual `rtk` forms:
 
 - type-check: `rtk tsc --noEmit` (uses the repo's local tsc) instead of `bunx tsc --noEmit`
