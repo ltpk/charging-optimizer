@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { ALV, DEFAULT_PARAMS, SLOT_MS, calcNetCost, isNightHour, optimize } from './optimization'
+import { ALV, DEFAULT_PARAMS, SLOT_MS, calcNetCost, healParams, isNightHour, optimize } from './optimization'
 import type { Params, PriceEntry, SolarData } from '../types'
 
 // 0→100% of 10 kWh, no loss, 5 kW → exactly 2.0 h needed; flat 1 c/kWh transfer, no margins
@@ -246,5 +246,17 @@ describe('optimize', () => {
 
   test('returns null without price data', () => {
     expect(optimize([], {}, baseParams, NOON)).toBeNull()
+  })
+})
+
+describe('healParams', () => {
+  test('raises a stored socTarget below the slider minimum to 50, keeps valid ones', () => {
+    expect(healParams({ ...DEFAULT_PARAMS, socTarget: 30 }).socTarget).toBe(50)
+    expect(healParams({ ...DEFAULT_PARAMS, socTarget: 80 }).socTarget).toBe(80)
+  })
+
+  test('re-derives a stale chargingPower from the electrical inputs', () => {
+    const p = { ...DEFAULT_PARAMS, phases: 3, amperage: 16, voltage: 230, chargerCap: 11, chargingPower: 99 }
+    expect(healParams(p).chargingPower).toBe(11)
   })
 })

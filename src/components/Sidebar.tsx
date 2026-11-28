@@ -18,6 +18,7 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import TuneIcon from '@mui/icons-material/Tune'
 import { InfoTip, SliderField, SectionLabel, FieldLabel } from './fields'
 import type { Params, ApiStatus } from '../types'
+import { SOC_TARGET_MIN } from '../utils/optimization'
 
 // small live-committing integer field (0–23) for the start/charge-by hours
 function HourField({ value, onCommit }: { value: number; onCommit: (v: number) => void }) {
@@ -164,7 +165,7 @@ export function Sidebar({
               info="State of charge you want to reach."
               value={params.socTarget}
               unit="%"
-              min={50}
+              min={SOC_TARGET_MIN}
               max={100}
               step={10}
               onChange={p('socTarget')}
