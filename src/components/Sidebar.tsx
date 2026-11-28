@@ -164,7 +164,7 @@ export function Sidebar({
               info="State of charge you want to reach."
               value={params.socTarget}
               unit="%"
-              min={10}
+              min={50}
               max={100}
               step={10}
               onChange={p('socTarget')}
