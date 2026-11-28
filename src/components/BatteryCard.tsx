@@ -1,6 +1,7 @@
 import { Box, Card, CardContent, Typography } from '@mui/material'
 import { SliderField } from './fields'
 import type { Params } from '../types'
+import { SOC_TARGET_MIN } from '../utils/optimization'
 
 interface Props {
   params: Params
@@ -30,7 +31,7 @@ export function BatteryCard({ params, onParamChange }: Props) {
             label="SOC target"
             value={params.socTarget}
             unit="%"
-            min={50}
+            min={SOC_TARGET_MIN}
             max={100}
             step={10}
             onChange={v => onParamChange('socTarget', v)}

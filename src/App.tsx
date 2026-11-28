@@ -33,19 +33,14 @@ import { PlanCard, planStatus, fmtNum } from './components/PlanCard'
 const PriceChart = lazy(() => import('./components/PriceChart').then(m => ({ default: m.PriceChart })))
 import { fetchPrices, awaitingDayAhead } from './utils/api'
 import { fetchSolarData, loadCachedSolar, solarCacheKey, isValidGeo } from './utils/solar'
-import { optimize, getTransfer, gridPower, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
+import { optimize, getTransfer, gridPower, healParams, DEFAULT_PARAMS, SLOT_MS } from './utils/optimization'
 import { lsGet, lsSet, LS_PARAMS, LS_GEO, LS_COLOR_MODE, LS_NOTIFY, localDateStr } from './utils/storage'
 import type { Params, PriceEntry, SolarData, GeoCoords, ApiStatus, OptimizeResult } from './types'
 
 type ColorMode = 'light' | 'dark' | 'system'
 
 const mergedParams: Params = { ...DEFAULT_PARAMS, ...(lsGet<Partial<Params>>(LS_PARAMS) ?? {}) }
-// heal stale stored values on load: chargingPower is derived from the electrical inputs; socTarget slider min is 50
-const storedParams: Params = {
-  ...mergedParams,
-  chargingPower: gridPower(mergedParams),
-  socTarget: Math.max(50, mergedParams.socTarget),
-}
+const storedParams = healParams(mergedParams)
 const storedGeo = lsGet<GeoCoords>(LS_GEO)
 const cachedSolar = loadCachedSolar(storedGeo, storedParams)
 

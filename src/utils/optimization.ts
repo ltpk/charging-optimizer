@@ -63,6 +63,13 @@ export function gridPower(p: Params): number {
   return p.chargerCap > 0 ? Math.min(outlet, p.chargerCap) : outlet
 }
 
+export const SOC_TARGET_MIN = 50
+
+// heal stale stored params on load: chargingPower is derived from the electrical inputs; socTarget has a slider minimum
+export function healParams(p: Params): Params {
+  return { ...p, chargingPower: gridPower(p), socTarget: Math.max(SOC_TARGET_MIN, p.socTarget) }
+}
+
 // read-only charging specs derived purely from the vehicle/charger config
 export interface ChargeSpecs {
   gridPower: number // kW drawn from grid
