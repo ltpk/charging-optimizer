@@ -30,7 +30,7 @@ export function BatteryCard({ params, onParamChange }: Props) {
             label="SOC target"
             value={params.socTarget}
             unit="%"
-            min={10}
+            min={50}
             max={100}
             step={10}
             onChange={v => onParamChange('socTarget', v)}
