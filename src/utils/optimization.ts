@@ -138,7 +138,6 @@ export function optimize(
   if (!priceData.length) return null
 
   const hoursNeeded = calcHours(params)
-  const nHours = Math.ceil(hoursNeeded)
 
   const pastCutoff = new Date(now.getTime() - 6 * 3_600_000)
 
@@ -267,12 +266,10 @@ export function optimize(
     kWhNeeded: hoursNeeded * params.chargingPower,
     completionTime,
     deadlinePassed,
-    nHours,
     totalCost,
     savingsVsNow,
     earliestStart: earliestDt && earliestDt > now ? earliestDt : null,
     nowIdx: slots.findIndex(h => h.ts === nowTs),
-    slotSources: slots.map(h => h.source === 'actual'),
     solarNow: params.solarEnabled ? getSolarForDt(solarData, now) : 0,
     solarPct,
     solarSavings,

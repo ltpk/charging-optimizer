@@ -1,7 +1,38 @@
+import { useEffect, useState, type ChangeEvent } from 'react'
 import { Box, Slider, Tooltip, Typography } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 
 // shared field helpers used by the Sidebar, SetupDialog and the mobile battery card
+
+// text-buffered numeric input (spread onto a TextField): each keystroke commits live without
+// remounting/dropping focus, partial input ("", "1.", "-") stays editable, only in-range values
+// commit (htmlInput min/max don't stop typing), and blur reverts invalid text to the committed value
+export function useRangeText(
+  value: number | string,
+  min: number | undefined,
+  max: number | undefined,
+  onCommit: (raw: string) => void,
+) {
+  const [text, setText] = useState(String(value))
+  // re-sync only when the value changes from outside (e.g. localStorage restore), never mid-typing
+  useEffect(() => {
+    if (parseFloat(text) !== parseFloat(String(value))) setText(String(value))
+  }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+  const ok = (t: string) => {
+    const v = parseFloat(t)
+    return !isNaN(v) && (min == null || v >= min) && (max == null || v <= max)
+  }
+  return {
+    value: text,
+    onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setText(e.target.value)
+      if (ok(e.target.value)) onCommit(e.target.value)
+    },
+    onBlur: () => {
+      if (!ok(text)) setText(String(value))
+    },
+  }
+}
 
 export function InfoTip({ text }: { text: string }) {
   return (

@@ -68,12 +68,10 @@ export interface OptimizeResult {
   kWhNeeded: number
   completionTime: Date | null
   deadlinePassed: boolean
-  nHours: number
   totalCost: number
   savingsVsNow: number
   earliestStart: Date | null // earliest-start limit, only while it's still ahead of now
   nowIdx: number
-  slotSources: boolean[]
   solarNow: number
   solarPct: number
   solarSavings: number

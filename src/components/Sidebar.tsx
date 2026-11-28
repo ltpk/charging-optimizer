@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import {
   Box,
   Divider,
@@ -16,32 +15,20 @@ import {
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import TuneIcon from '@mui/icons-material/Tune'
-import { InfoTip, SliderField, SectionLabel, FieldLabel } from './fields'
+import { InfoTip, SliderField, SectionLabel, FieldLabel, useRangeText } from './fields'
 import type { Params, ApiStatus } from '../types'
 import { SOC_TARGET_MIN } from '../utils/optimization'
 
 // small live-committing integer field (0–23) for the start/charge-by hours
 function HourField({ value, onCommit }: { value: number; onCommit: (v: number) => void }) {
-  const [text, setText] = useState(String(value))
-  useEffect(() => {
-    if (parseInt(text) !== value) setText(String(value))
-  }, [value]) // depend only on `value` — re-syncing on `text` would clobber mid-typing
+  const field = useRangeText(value, 0, 23, raw => onCommit(parseInt(raw)))
   return (
     <TextField
       type="number"
-      value={text}
+      {...field}
       slotProps={{ htmlInput: { min: 0, max: 23, step: 1 } }}
       size="small"
       sx={{ width: 60 }}
-      onChange={e => {
-        setText(e.target.value)
-        const v = parseInt(e.target.value)
-        if (!isNaN(v) && v >= 0 && v <= 23) onCommit(v)
-      }}
-      onBlur={() => {
-        const v = parseInt(text)
-        if (isNaN(v) || v < 0 || v > 23) setText(String(value))
-      }}
     />
   )
 }

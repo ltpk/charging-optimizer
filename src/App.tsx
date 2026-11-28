@@ -206,7 +206,7 @@ export default function App() {
   }, [])
 
   const handleResetParams = useCallback(() => {
-    setParams({ ...DEFAULT_PARAMS, chargingPower: gridPower(DEFAULT_PARAMS) })
+    setParams(healParams(DEFAULT_PARAMS))
   }, [])
 
   const handleGetGeo = useCallback(() => {
@@ -361,7 +361,12 @@ export default function App() {
   )
 
   const status = result
-    ? planStatus(isGo, result.nHours <= 0, result.selectedList[0], result.selectedList[result.selectedList.length - 1])
+    ? planStatus(
+        isGo,
+        result.hoursNeeded <= 0,
+        result.selectedList[0],
+        result.selectedList[result.selectedList.length - 1],
+      )
     : null
 
   return (
@@ -386,7 +391,7 @@ export default function App() {
                 // plan card scrolled away — keep the answer in view
                 <Chip
                   color={status.color}
-                  label={`${status.short}${result.nHours > 0 ? ` · ${fmtNum(result.totalCost)}\u00a0€` : ''}`}
+                  label={`${status.short}${result.hoursNeeded > 0 ? ` · ${fmtNum(result.totalCost)}\u00a0€` : ''}`}
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                   sx={{ fontWeight: 600, minWidth: 0 }}
                 />
@@ -533,7 +538,7 @@ export default function App() {
                 <Box ref={heroRef}>
                   <PlanCard
                     isGo={isGo}
-                    isFull={result.nHours <= 0}
+                    isFull={result.hoursNeeded <= 0}
                     firstSel={result.selectedList[0]}
                     lastSel={result.selectedList[result.selectedList.length - 1]}
                     hoursNeeded={result.hoursNeeded}
@@ -555,7 +560,7 @@ export default function App() {
                   />
                 </Box>
 
-                {result.deadlinePassed && result.nHours > 0 ? (
+                {result.deadlinePassed && result.hoursNeeded > 0 ? (
                   <Alert severity="warning">
                     The charge-by deadline has already passed — pick a later time in the settings.
                   </Alert>
@@ -599,7 +604,6 @@ export default function App() {
                     slots={result.slots}
                     selectedTs={result.selectedTs}
                     nowIdx={result.nowIdx}
-                    slotSources={result.slotSources}
                     horizonH={params.horizonH}
                     params={params}
                   />
